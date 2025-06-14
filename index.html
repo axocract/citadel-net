@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citadel GUI Access</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, input, button, select, textarea {
+            font-family: 'Consolas', monospace;
+        }
+        body {
+            overscroll-behavior: none; 
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #374151; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #6b7280; border-radius: 4px; border: 2px solid #374151; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #9ca3af; }
+
+        .program-output p, .file-content-display p, #login-messages p, #main-app-messages p, #logout-modal-message p, #popup-modal-message p {
+            margin-bottom: 0.5em; line-height: 1.4;
+        }
+        .directory { color: #60a5fa; font-weight: bold; }
+        .archive-directory { color: #ec4899; font-weight: bold; } /* Pink color for the new folder */
+        .file { color: #fde047; }
+        .exe-file { color: #fb923c; font-weight: bold;}
+        .image-file { color: #86efac; text-decoration: underline; }
+        .error { color: #f87171; }
+        .success { color: #4ade80; }
+        .info { color: #60a5fa; }
+        .highlight { color: #facc15; }
+        .tutorial-text { color: #a5f3fc; }
+        .status-ok { color: #4ade80; }
+        .status-offline { color: #f87171; }
+        .status-detected { color: #f59e0b; } 
+        .status-terminated { color: #ef4444; font-weight: bold; } 
+        .warning-text { color: #fb923c; }
+        .kill-warning-text { color: #ef4444; font-weight: bold; }
+
+        #monitor-frame-container {
+            background-color: #1f2937; 
+            min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 1rem;
+        }
+        #monitor-frame {
+            width: 100%; max-width: 1400px; 
+            height: 90vh; max-height: 850px; 
+            background-color: #374151; border: 15px solid #111827; 
+            border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+            padding: 20px; box-sizing: border-box; display: flex; flex-direction: column;
+            position: relative; overflow: hidden;
+        }
+        .app-window {
+            background-color: #1a1a1a; color: #e0e0e0;
+            font-size: 14px; 
+            line-height: 1.3; height: 100%; padding: 1rem; box-sizing: border-box;
+            display: flex; flex-direction: column; overflow: hidden; border-radius: 5px;
+        }
+        .input-field {
+            background-color: #2d2d2d; border: 1px solid #4b5563; color: #e0e0e0;
+            padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem; width: 100%;
+        }
+        .button {
+            background-color: #4f46e5; color: white; padding: 0.5rem 1rem; 
+            border-radius: 0.375rem; border: none; cursor: pointer;
+            transition: background-color 0.2s; margin-right: 0.5rem; margin-bottom: 0.5rem;
+        }
+        .button:disabled { background-color: #374151; cursor: not-allowed; opacity: 0.7; }
+        .button:hover:not(:disabled) { background-color: #4338ca; }
+        .button.flash-green { animation: flashGreen 0.7s ease-out; }
+        @keyframes flashGreen { 0%, 100% { background-color: #4f46e5; } 50% { background-color: #22c55e; } } 
+
+        .button-secondary { background-color: #6b7280; }
+        .button-secondary:hover:not(:disabled) { background-color: #4b5563; }
+        .button-danger { background-color: #dc2626; }
+        .button-danger:hover:not(:disabled) { background-color: #b91c1c; }
+        .button-warning { background-color: #f59e0b; } 
+        .button-warning:hover:not(:disabled) { background-color: #d97706; } 
+        
+        .login-box {
+            width: 100%; max-width: 420px; 
+            min-height: 470px; 
+            padding: 1rem; background-color: #1f2937; 
+            border-radius: 0.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; justify-content: flex-start; 
+        }
+        #login-banner { text-align: center; margin-bottom: 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid #4b5563;} 
+        #login-banner-title { font-size: 1.75rem; font-weight: bold; color: #60a5fa; }
+        #login-banner-subtitle { font-size: 0.8rem; color: #9ca3af; margin-top:0.1rem;}
+        #login-motd { text-align: center; font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem; } 
+
+
+        #login-messages { max-height: 60px; overflow-y: auto; margin-bottom: 0.5rem !important; font-size:0.8rem;} 
+        .login-user-list-item strong { color: #2dd4bf; }
+        .login-user-list-item .unavailable { color: #9ca3af; font-style: italic; }
+        .css-hr { border: 0; height: 1px; background-color: #4b5563; margin: 0.5rem 0 !important; } 
+        #login-user-list-area { margin-bottom: 0.25rem !important; }
+
+
+        #main-app-top-banner { text-align: center; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid #4b5563;}
+        #main-app-title { font-size: 1.75rem; font-weight: bold; color: #60a5fa; }
+        #main-app-welcome { font-size: 0.8rem; color: #9ca3af; }
+
+        .program-full-panel { height: 100%; display: flex; flex-direction: column; }
+        .program-content-area { flex-grow: 1; overflow-y: auto; padding: 0.75rem; background-color: #262626; border-radius: 0.25rem; margin-bottom: 0.75rem; }
+        .program-controls { margin-top: auto; }
+
+        .kill-modal-base {
+            position: fixed; inset: 0; background-color: rgba(0,0,0,0.75); 
+            display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 100;
+            font-family: 'Consolas', monospace; 
+        }
+        .kill-modal-content {
+            background-color: #374151; color: #e5e7eb; 
+            padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            text-align: center; max-width: 500px; width: 90%;
+            border: 2px solid #7f1d1d; 
+        }
+        .kill-modal-content h3 { font-size: 1.25rem; font-weight: bold; color: #f87171; margin-bottom: 1rem; } 
+        .kill-modal-content p { margin-bottom: 1rem; line-height: 1.5; }
+        .kill-modal-buttons-stacked .button { display: block; width: 100%; margin-left: 0; margin-right: 0; }
+        .kill-modal-buttons-stacked .button:not(:last-child) { margin-bottom: 0.75rem; }
+
+        #medical-kill-stage2-modal .kill-modal-content { 
+             background-color: #7f1d1d; border-color: #ef4444; 
+        }
+         #medical-kill-stage2-modal h3 { color: #fecaca; } 
+         #medical-kill-stage2-modal p { color: #fda4af; }
+
+        #medical-kill-final-confirm-modal .kill-modal-content { 
+            background-color: #450a0a; border-color: #ef4444; 
+        }
+        #medical-kill-final-confirm-modal h3 { color: #fda4af; }
+        #medical-kill-final-confirm-modal p { color: #fecaca; }
+        
+        #popup-modal-overlay {
+            position: fixed; inset: 0; background-color: rgba(0,0,0,0.6);
+            display: flex; align-items: center; justify-content: center; z-index: 200;
+        }
+        #popup-modal-content {
+            background-color: #2d3748; color: #e2e8f0; 
+            padding: 2rem; border-radius: 0.5rem; text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3); max-width: 450px;
+            font-family: 'Consolas', monospace; 
+        }
+        #popup-modal-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem; }
+
+        #logout-modal-overlay, #session-ended-modal-overlay { display: none; }
+        #conversation-log .system-event-log {
+            text-align: center; margin: 0.5rem 0; padding: 0.25rem 0.5rem;
+            background-color: #374151; 
+            border-radius: 0.25rem; font-size: 0.8rem; font-style: italic; color: #9ca3af; 
+        }
+         #conversation-log .system-prompt-log {
+            text-align: center; margin: 0.5rem auto; padding: 0.5rem;
+            background-color: #1e3a8a; border: 1px solid #1d4ed8; 
+            border-radius: 0.375rem; font-size: 0.9rem; color: #bfdbfe; 
+            max-width: 80%;
+        }
+        #medical-status-display table, #medical-status-display th, #medical-status-display td {
+            font-size: 0.75rem; 
+            line-height: 1.25rem; 
+        }
+        select.input-field { 
+            font-family: 'Consolas', monospace;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+    <div id="monitor-frame-container">
+        <div id="monitor-frame">
+            <div id="login-screen" class="app-window flex flex-col justify-center items-center">
+                <div class="login-box">
+                    <div id="login-banner">
+                        <div id="login-banner-title">CitadelNet</div>
+                        <div id="login-banner-subtitle">Secure Access Terminal</div>
+                    </div>
+                    <div id="login-motd" class="text-xs text-gray-400 text-center mb-2">~ MotD: Please remember to clean your dishes - Grak ~</div>
+                    <hr class="css-hr">
+                    <div id="login-user-list-area" class="mb-2 text-left text-sm leading-relaxed pl-2">
+                        </div>
+                    <hr class="css-hr">
+                    <div id="login-messages" class="text-sm custom-scrollbar"></div>
+
+                    <div id="username-input-container" class="relative mt-1">
+                        <label for="username-input" class="block text-sm font-medium text-gray-300 mb-1">Username: user/</label>
+                        <input type="text" id="username-input" class="input-field w-full mb-1 pr-10" autofocus>
+                        <button id="cancel-username-button" class="absolute right-2 top-8 text-gray-400 hover:text-white text-2xl leading-none p-1" style="display:none;">&times;</button>
+                    </div>
+
+                    <div id="password-input-container" style="display:none;">
+                        <label for="password-input" class="block text-sm font-medium text-gray-300 mb-1 mt-2">Password for <span id="password-user-prompt"></span>:</label>
+                        <input type="password" id="password-input" class="input-field w-full mb-1">
+                        <div class="flex justify-between items-center text-xs mt-1 mb-2">
+                            <button id="forgot-password-button" class="text-cyan-400 hover:underline">Forgot Password?</button>
+                            <button id="back-to-username-button" class="text-gray-400 hover:underline">Change User</button>
+                        </div>
+                    </div>
+                    
+                    <button id="login-flow-button" class="button w-full mt-auto py-2.5 text-base">Next</button> 
+                </div>
+            </div>
+
+            <div id="main-app-screen" class="app-window" style="display:none;">
+                 <div id="main-app-top-banner">
+                    <div id="main-app-title">CitadelNet</div>
+                    <div id="main-app-welcome">Welcome, <span id="current-user-display" class="font-semibold"></span></div>
+                </div>
+                
+                <div id="main-header" class="flex justify-between items-center mb-2 pb-1 ">
+                    <div class="text-xs">Current Location: /<span id="current-path-display"></span></div>
+                    <div>
+                        <button id="tutorial-button" class="button button-secondary text-xs py-1 px-2">Tutorial & Help</button>
+                        <button id="logout-button" class="button button-danger text-xs py-1 px-2">Logout</button>
+                    </div>
+                </div>
+
+                <div id="main-app-messages" class="text-xs mb-1 custom-scrollbar max-h-16 overflow-y-auto"></div>
+
+                <div class="flex-grow flex gap-3 overflow-hidden">
+                    <div id="file-explorer-panel" class="w-1/3 bg-gray-800 p-2 rounded-md flex flex-col overflow-hidden border border-gray-700">
+                        <h4 class="text-base font-semibold mb-1 text-cyan-400">File Explorer</h4>
+                        <div class="mb-1">
+                            <button id="cd-up-button" class="button button-secondary text-xs py-1 px-2 w-full mb-1">Return to parent</button>
+                        </div>
+                        <ul id="file-list" class="list-none p-0 m-0 flex-grow overflow-y-auto custom-scrollbar text-xs"></ul>
+                    </div>
+
+                    <div id="content-panel" class="w-2/3 bg-gray-800 p-2 rounded-md flex flex-col overflow-hidden border border-gray-700">
+                        <h4 class="text-base font-semibold mb-1 text-cyan-400" id="content-panel-title">Output / Program Interface</h4>
+                        <div id="file-content-display" class="whitespace-pre-wrap flex-grow overflow-y-auto custom-scrollbar text-xs mb-1 p-1.5 bg-gray-900 rounded"></div>
+                        
+                        <div id="program-interface-container" class="mt-auto h-full">
+                            <div id="medical-program-ui" class="program-full-panel" style="display:none;">
+                                <div class="program-header text-center font-bold text-cyan-400 mb-1 py-1.5 border-b border-cyan-700">CITADEL OF ACCORD MEDICAL SYSTEM</div>
+                                <div class="program-content-area custom-scrollbar"> 
+                                    <h5 class="text-sm font-semibold text-cyan-300 mb-1">User Status Overview:</h5>
+                                    <div id="medical-status-display" class="mb-2 p-1.5 bg-gray-900 rounded custom-scrollbar max-h-36 overflow-y-auto"></div> 
+                                    <h5 class="text-sm font-semibold text-cyan-300 mb-0.5">System Log:</h5>
+                                    <div id="medical-output" class="text-xs mb-2 p-1.5 bg-gray-900 rounded custom-scrollbar max-h-40 overflow-y-auto"></div> 
+                                </div>
+                                <div class="program-controls p-1.5 border-t border-cyan-700">
+                                    <div id="medical-main-controls" class="flex gap-2 mb-1">
+                                        <button id="medical-scan-button" class="button text-xs py-1.5 flex-1">Scan User ID</button>
+                                        <button id="medical-terminate-button" class="button button-danger text-xs py-1.5 flex-1">Terminate Target...</button>
+                                    </div>
+                                    <div id="medical-scan-id-modal" class="p-2 bg-gray-700 rounded shadow-lg" style="display:none;">
+                                        <label for="medical-scan-id-input" class="block text-xs mb-1">Enter User ID to Scan:</label>
+                                        <input type="number" id="medical-scan-id-input" class="input-field w-full mb-1 text-xs p-1.5">
+                                        <div class="flex justify-end gap-1">
+                                            <button id="medical-scan-id-submit" class="button text-xs py-1 px-2">Scan</button>
+                                            <button id="medical-scan-id-cancel" class="button button-secondary text-xs py-1 px-2">Cancel</button>
+                                        </div>
+                                    </div>
+                                     <div id="medical-terminate-id-modal" class="p-2 bg-gray-700 rounded shadow-lg" style="display:none;">
+                                        <label for="medical-terminate-id-input" class="block text-xs mb-1 text-red-400">Enter ID of Target to Terminate (CONFIRM):</label>
+                                        <input type="number" id="medical-terminate-id-input" class="input-field w-full mb-1 text-xs p-1.5">
+                                        <div class="flex justify-end gap-1">
+                                            <button id="medical-terminate-id-submit" class="button button-danger text-xs py-1 px-2">Confirm & Proceed</button>
+                                            <button id="medical-terminate-id-cancel" class="button button-secondary text-xs py-1 px-2">Cancel</button>
+                                        </div>
+                                    </div>
+                                    <div class="text-right mt-1">
+                                        <button id="medical-close-button" class="button button-secondary text-xs py-1 px-2">Close Medical System</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="permission-program-ui" class="program-full-panel" style="display:none;">
+                                 <div class="program-header text-center font-bold text-yellow-400 mb-1 py-1.5 border-b border-yellow-700">ADMINISTRATIVE ACCESS CONTROL</div>
+                                 <div class="program-content-area custom-scrollbar text-xs">
+                                    <h5 class="text-sm font-semibold text-yellow-300 mb-1">Manage User Permissions:</h5>
+                                    <div class="mb-2 p-1.5 bg-gray-900 rounded">
+                                        <label for="permission-select-user" class="block text-xs mb-0.5">Target User:</label>
+                                        <select id="permission-select-user" class="input-field w-full mb-1 text-xs p-1.5"></select>
+                                        
+                                        <label for="permission-select-level" class="block text-xs mb-0.5">New Access Level:</label>
+                                        <select id="permission-select-level" class="input-field w-full mb-2 text-xs p-1.5"></select>
+                                        <button id="permission-apply-button" class="button w-full text-xs py-1.5">Apply Permissions</button>
+                                    </div>
+                                    <h5 class="text-sm font-semibold text-yellow-300 mb-0.5">Current Access Levels:</h5>
+                                    <div id="permission-status-display" class="mb-2 p-1.5 bg-gray-900 rounded custom-scrollbar max-h-28 overflow-y-auto"></div>
+                                 </div>
+                                <div class="program-controls p-1.5 border-t border-yellow-700 text-right">
+                                    <button id="permission-close-button" class="button button-secondary text-xs py-1 px-2">Close Admin Control</button>
+                                </div>
+                            </div>
+                             <div id="conversation-ui" class="program-full-panel" style="display:none;">
+                                <div class="program-header text-center font-bold text-blue-400 mb-1 py-1.5 border-b border-blue-700">AUTOMATIC RESPONSE SYSTEM</div>
+                                <div id="conversation-log" class="text-xs mb-1 custom-scrollbar flex-grow overflow-y-auto p-1.5 bg-gray-900 rounded"></div>
+                                <div id="conversation-input-area" class="flex items-center gap-1 p-1.5 border-t border-blue-700" style="display:none;">
+                                    <span id="conversation-prompt" class="text-blue-400 text-xs"></span>
+                                    <input type="text" id="conversation-input" class="input-field flex-grow text-xs py-1 px-1.5" placeholder="Your response...">
+                                    <button id="conversation-submit-button" class="button text-xs py-1 px-2">Send</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Image Viewer Modal -->
+            <div id="image-modal-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50" style="display: none;">
+                 <div id="image-modal-window" class="modal-content-gui bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full relative">
+                    <div class="modal-title-bar bg-gray-700 text-gray-200 p-3 rounded-t-lg flex justify-between items-center" id="modal-title-bar-draggable">
+                        <span id="modal-title-text" class="font-semibold">Image Viewer</span>
+                        <button id="modal-close-button" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+                    </div>
+                    <div class="p-4"><img id="modal-image" src="" alt="Opened image" class="max-w-full max-h-[70vh] object-contain mx-auto rounded"></div>
+                </div>
+            </div>
+            
+            <!-- Medical Kill Confirmation Modals -->
+            <div id="medical-kill-stage1-modal" class="kill-modal-base" style="display: none;">
+                <div class="kill-modal-content">
+                    <h3>Confirm Termination Protocol</h3>
+                    <p>You are about to permanently terminate <strong class="text-red-300">user/parasite</strong>. This action is irreversible.<br>Are you sure you wish to proceed?</p>
+                    <div class="kill-modal-buttons-stacked">
+                        <button id="medical-kill-s1-proceed" class="button button-warning">YES, Initiate Protocol</button>
+                        <button id="medical-kill-s1-cancel" class="button button-secondary">NO, Cancel</button>
+                    </div>
+                </div>
+            </div>
+            <div id="medical-kill-stage2-modal" class="kill-modal-base" style="display: none;">
+                <div class="kill-modal-content">
+                    <h3>Authorization Phrase Required</h3>
+                    <p>To confirm your intent, you MUST type the following authorization phrase exactly:</p>
+                    <p class="text-yellow-300 font-mono bg-gray-900 p-2 rounded my-3 text-sm">I understand the consequences and wish to kill user/parasite</p>
+                    <input type="text" id="medical-kill-s2-sentence" class="input-field w-full mb-4" placeholder="Enter authorization phrase...">
+                    <div class="kill-modal-buttons-stacked">
+                        <button id="medical-kill-s2-cancel" class="button button-secondary">Cancel Termination</button> <button id="medical-kill-s2-verify" class="button button-warning">VERIFY Authorization</button>
+                    </div>
+                </div>
+            </div>
+            <div id="medical-kill-final-confirm-modal" class="kill-modal-base" style="display: none;"> 
+                 <div class="kill-modal-content">
+                    <h3>CRITICAL ACTION: FINAL AUTHORIZATION</h3>
+                    <p>Enter your account password (Veit-Sal) to execute the permanent termination of <strong class="text-red-300">user/parasite</strong>.</p>
+                    <p class="font-bold text-yellow-300">THERE IS NO UNDOING THIS ACTION.</p>
+                    <input type="password" id="medical-kill-s3-password" class="input-field w-full mb-4 bg-gray-900 text-white placeholder-gray-500 border-red-500" placeholder="Veit-Sal's Password...">
+                    <div class="kill-modal-buttons-stacked mt-6">
+                        <button id="medical-kill-s3-execute" class="button button-danger px-8 py-3 text-lg font-bold">EXECUTE PERMANENT TERMINATION</button>
+                        <button id="medical-kill-s3-abort" class="button button-secondary">Cancel</button> </div>
+                </div>
+            </div>
+
+            <!-- Generic Popup Modal for Notifications -->
+            <div id="popup-modal-overlay" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-200" style="display: none;">
+                <div id="popup-modal-content" class="bg-gray-800 p-6 rounded-lg shadow-xl text-center max-w-sm w-full">
+                    <h3 id="popup-modal-title" class="text-xl font-semibold mb-3">Notification</h3>
+                    <div id="popup-modal-message" class="mb-4 text-gray-300"></div>
+                    <button id="popup-modal-close" class="button button-secondary px-6 py-2">OK</button>
+                </div>
+            </div>
+            
+            <!-- Logout Modal -->
+            <div id="logout-modal-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-200" style="display: none;">
+                <div id="logout-modal-content" class="bg-gray-800 p-6 rounded-lg shadow-xl text-center">
+                    <h3 class="text-xl font-semibold mb-4 text-yellow-400">System Logout</h3>
+                    <div id="logout-modal-message" class="text-lg text-gray-300"></div>
+                </div>
+            </div>
+
+            <!-- Session Ended (Credits) Modal -->
+            <div id="session-ended-modal-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-150" style="display: none;">
+                <div class="bg-gray-800 p-8 rounded-lg shadow-xl text-center max-w-lg w-full">
+                    <h3 class="text-2xl font-bold text-cyan-400 mb-4">Session Concluded</h3>
+                    <div id="session-ended-message" class="text-gray-300 mb-6 leading-relaxed">
+                        CitadelNet by Axocract<br>
+                        ~ to be continued (maybe) ~<br><br>
+                        Hope you liked it, thanks for playing.
+                    </div>
+                    <button id="session-ended-close-button" class="button button-primary px-6 py-2">Continue Exploring</button>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements (condensed for brevity)
+            const loginScreen = document.getElementById('login-screen'); 
+            const mainAppScreen = document.getElementById('main-app-screen');  
+            const loginBanner = document.getElementById('login-banner'); 
+            const loginUserListArea = document.getElementById('login-user-list-area'); 
+            const loginMotd = document.getElementById('login-motd');
+            const loginMessages = document.getElementById('login-messages'); 
+            const usernameInput = document.getElementById('username-input'); 
+            const cancelUsernameButton = document.getElementById('cancel-username-button'); 
+            const passwordInputContainer = document.getElementById('password-input-container'); 
+            const passwordInput = document.getElementById('password-input'); 
+            const loginFlowButton = document.getElementById('login-flow-button'); 
+            const passwordUserPrompt = document.getElementById('password-user-prompt'); 
+            const forgotPasswordButton = document.getElementById('forgot-password-button'); 
+            const backToUsernameButton = document.getElementById('back-to-username-button'); 
+            const currentUserDisplay = document.getElementById('current-user-display'); 
+            const currentPathDisplay = document.getElementById('current-path-display'); 
+            const mainAppMessages = document.getElementById('main-app-messages'); 
+            const logoutButton = document.getElementById('logout-button'); 
+            const tutorialButton = document.getElementById('tutorial-button'); 
+            const fileListUL = document.getElementById('file-list'); 
+            const cdUpButton = document.getElementById('cd-up-button'); 
+            const contentPanelTitle = document.getElementById('content-panel-title'); 
+            const fileContentDisplay = document.getElementById('file-content-display'); 
+            const medicalProgramUI = document.getElementById('medical-program-ui'); 
+            const medicalStatusDisplay = document.getElementById('medical-status-display'); 
+            const medicalOutput = document.getElementById('medical-output'); 
+            const medicalScanButton = document.getElementById('medical-scan-button'); 
+            const medicalTerminateButton = document.getElementById('medical-terminate-button'); 
+            const medicalScanIdModal = document.getElementById('medical-scan-id-modal'); 
+            const medicalScanIdInput = document.getElementById('medical-scan-id-input'); 
+            const medicalScanIdSubmit = document.getElementById('medical-scan-id-submit'); 
+            const medicalScanIdCancel = document.getElementById('medical-scan-id-cancel'); 
+            const medicalTerminateIdModal = document.getElementById('medical-terminate-id-modal'); 
+            const medicalTerminateIdInput = document.getElementById('medical-terminate-id-input'); 
+            const medicalTerminateIdSubmit = document.getElementById('medical-terminate-id-submit'); 
+            const medicalTerminateIdCancel = document.getElementById('medical-terminate-id-cancel'); 
+            const medicalCloseButton = document.getElementById('medical-close-button'); 
+            const medicalKillStage1Modal = document.getElementById('medical-kill-stage1-modal'); 
+            const medicalKillS1Proceed = document.getElementById('medical-kill-s1-proceed'); 
+            const medicalKillS1Cancel = document.getElementById('medical-kill-s1-cancel'); 
+            const medicalKillStage2Modal = document.getElementById('medical-kill-stage2-modal'); 
+            const medicalKillS2Sentence = document.getElementById('medical-kill-s2-sentence'); 
+            const medicalKillS2Verify = document.getElementById('medical-kill-s2-verify'); 
+            const medicalKillS2Cancel = document.getElementById('medical-kill-s2-cancel'); 
+            const medicalKillFinalConfirmModal = document.getElementById('medical-kill-final-confirm-modal'); 
+            const medicalKillS3Password = document.getElementById('medical-kill-s3-password'); 
+            const medicalKillS3Execute = document.getElementById('medical-kill-s3-execute'); 
+            const medicalKillS3Abort = document.getElementById('medical-kill-s3-abort'); 
+            const permissionProgramUI = document.getElementById('permission-program-ui'); 
+            const permissionStatusDisplay = document.getElementById('permission-status-display'); 
+            const permissionSelectUser = document.getElementById('permission-select-user'); 
+            const permissionSelectLevel = document.getElementById('permission-select-level'); 
+            const permissionApplyButton = document.getElementById('permission-apply-button'); 
+            const permissionCloseButton = document.getElementById('permission-close-button'); 
+            const conversationUI = document.getElementById('conversation-ui'); 
+            const conversationLog = document.getElementById('conversation-log'); 
+            const conversationInputArea = document.getElementById('conversation-input-area'); 
+            const conversationPrompt = document.getElementById('conversation-prompt'); 
+            const conversationInput = document.getElementById('conversation-input'); 
+            const conversationSubmitButton = document.getElementById('conversation-submit-button'); 
+            const imageModalOverlay = document.getElementById('image-modal-overlay'); 
+            const modalTitleText = document.getElementById('modal-title-text'); 
+            const modalImageElement = document.getElementById('modal-image'); 
+            const modalCloseButton = document.getElementById('modal-close-button'); 
+            const modalTitleBarDraggable = document.getElementById('modal-title-bar-draggable'); 
+            const popupModalOverlay = document.getElementById('popup-modal-overlay'); 
+            const popupModalTitle = document.getElementById('popup-modal-title'); 
+            const popupModalMessage = document.getElementById('popup-modal-message'); 
+            const popupModalClose = document.getElementById('popup-modal-close'); 
+            const logoutModalOverlay = document.getElementById('logout-modal-overlay'); 
+            const logoutModalMessage = document.getElementById('logout-modal-message'); 
+            const sessionEndedModalOverlay = document.getElementById('session-ended-modal-overlay'); 
+            const sessionEndedCloseButton = document.getElementById('session-ended-close-button'); 
+
+
+            // Game State (same as before)
+            let gameState = {
+                currentPath: [], loggedIn: false, loginStep: 'awaitingUsername', enteredUsername: '',
+                normalizedLoggedInUser: '', userFileSystemRoot: {}, activeProgram: null, programState: {},
+                permissions: { veitSalCanKillParasite: false, veitSalNotifiedOfKillPerm: false },
+                userAccessLevels: { "veit-sal": "BASIC", "grakanak": "ADMIN", "od'en": "BASIC", "yzaen'l": "BASIC" },
+                parasiteKilled: false, parasiteScanned: false, activeConversation: null,
+                conversationState: { step: 0, typingIndicatorInterval: null, currentMessageElement: null, messageQueue: [], promptMessageShown: false },
+                gameConcluded: false,
+                archiveUnlocked: false, // New flag for post-game content
+            };
+
+            // Post-Game Content
+            const personalArchive = {
+                "stupid bot.txt": "=== SECURE NETWORK ===\nuser/Od’en ➜ bot/CitadelAI\n=======================\nBEGIN MESSAGE LOG\n\n[7:23] Veit-Sal ➜ CitadelAI\nam i a bad person for not committing to one person \n\n[7:23] CitadelAI ➜ Veit-Sal\nThe ethical assessment of relationship structures, including non-exclusivity, is generally contingent upon factors such as mutual consent, transparency among all involved parties, and the fulfillment of established expectations. A determination of 'bad' typically correlates with the infliction of harm or the breach of such understandings, rather than the structure of the relationship itself. Societal norms regarding commitment are varied and not universally monolithic.\n—\nDID YOU LIKE THIS RESPOSNE? y/n\n\n[7:28] Veit-Sal ➜ CitadelAI\ni feel like i use people though but they say they want it what do i do \nand i feel like im bad for that\nbut i like it a lot\nhello\nhello\nwtf",
+                "two yrs.txt": "=== SECURE NETWORK ===\nuser/Od’en ➜ user/Veit-Sal\n=======================\nBEGIN MESSAGE LOG\n\n[10:30] Od’en ➜ Veit-Sal\nWhat are we?\n\n[10:35] Veit-Sal ➜ Od’en\nnot answering that\ntoo complicated \ntext me in 2 years",
+                "oden questions.txt": "=== SECURE NETWORK ===\nuser/Od’en ➜ user/Veit-Sal\n=======================\nBEGIN MESSAGE LOG\n\n[00:10] Od’en ➜ Veit-Sal\nCan I be selfish and ask stupid questions\n\n[00:13] Veit-Sal ➜ Od’en\ntalk to me\n\n[00:14] Od’en ➜ Veit-Sal\nOkayyyy so \nHow normal is it to \nLiiike\nYou know\nBe not into girls\nIn this universe\n\n[00:15] Veit-Sal ➜ Od’en\nthere r conservative fucks\nwill give u shit\nbut usually romance isnt a thing anyway like gay or not\nit’s very shitty and for need or for children or whatever\n\n[00:16] Od’en ➜ Veit-Sal\nDo you think Grak cares\nOr is disappointed\n\n[00:17] Veit-Sal ➜ Od’en\nok so\nseeing as you have like\nliterally half naked cuddled \nwith me AND him\nAT THE SAME TIME\ni think it is fair 2 say\nur good\nlol\n\n[00:18] Od’en ➜ Veit-Sal\nYou make me really comfortable\nIn my sexuality\nAnd it’s weird\nAnd fucking stupid\nI’m sorry\n\n[00:20] Veit-Sal ➜ Od’en\nyou are perfectly designed\nyou forget this often\nyou were MADE to be what you are\nto love\nto hate\nto experience\nto please and be pleased\nand everything in between\nu r perfect\nu r so good and awesome\n(and handsome DONT TELL GRAK)\nu r gonna be so fine \n\n[00:21] Od’en ➜ Veit-Sal\n……\n…………..\nThank you Veit\nI hope it’s not weird\nThat I like \nVent about this to you\n\n[00:22] Veit-Sal ➜ Od’en\nlook idm\ni want you to be happy \nand i LOVE talking about this shit\njust text me whenever ok? \n\n[00:25] Od’en ➜ Veit-Sal\nViet\n\n[00:26] Veit-Sal ➜ Od’en\nyeah?\n\n[00:28] Od’en ➜ Veit-Sal\nCan I say I love you\n\n[00:33] Veit-Sal ➜ Od’en\ni love you too bud.",
+                "talan.txt": "=== SECURE NETWORK ===\nuser/Veit-Sal ➜ talan@glass-fold\n=======================\n!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!! \nTHIS CONVERSATION INVOLVES A USER OUTSIDE THE CITADEL NETWORK\nDO NOT SHARE SENSITIVE INFORMATION\nTHIS LINE MAY BE MONITORED\n\nBEGIN MESSAGE LOG\n[23:10] Talan ➜ Veit-Sal\nHello Veit Sal How are you .\n\n[23:13] Veit-Sal ➜ Talan\nhey hey heyyy\nlook who it is\n\n[23:15] Talan ➜ Veit-Sal\nYes Hi it is me from Glass Fold\nDo you Remember The Conversation We had At The Summit\n\n[23:16] Talan ➜ Veit-Sal\npft yea of course i do whats up man\n\n[23:17] Talan ➜ Veit-Sal\nI AM Doing Great\nHow is My Son\n\n[23:18] Veit-Sal ➜ Talan\nhaha yea kaithen is our little intern around here\nhe works really hard\nu should be proud\n\n[23:19] Talan ➜ Veit-Sal\nWow that is great\nI Am . ReaLLY HAPPY TO HEAR THAT\nHOW DO I TURN THE CAPITALS OFF\n\n[23:20] Talan ➜ Veit-Sal\nold man\ncaps lock\n\n[23:21] Talan ➜ Veit-Sal\nOh Okay I got it Thank you\nAnyways\nWould You like to Come Over for Dinner and a Drink Sometime\n\n[23:23] Veit-Sal ➜ Talan\n?????\nlike a date???? HAHA\nyes !!! that sounds great\nwould you want me to stay over\nand how prepared should i be? hehe\n\n[23:24] Talan ➜ Veit-Sal\nOnly as Ready as you want to Be.\nI have a Guest Room if you Want To Stay the night .\nUp To you. \n\n[23:25] Veit-Sal ➜ Talan\nok well i just gotta check with grak and them 2 make sure it’s ok\nwanna do tomorrow\n\n[23:26] Talan ➜ Veit-Sal\nYes Sounds Fantastic thank you . \n1700 hours ? Maybe\nCan You tell Kaithen I love Him\n\n[23:29] Talan ➜ Veit-Sal\nyeah and when we get him on the network i can give you his id and you can text him too\n\n[23:32] Talan ➜ Veit-Sal\nWow That would be Great\nOkay I Will see you tomorrow . Bye",
+                "AAAAAnote-to-self-other.txt": "remember to delete these later\ndo noT PUT IMPORTANT SHIT IN HEREimportant shit elsewhere\ngrak will get mad if he sees my bad filestructure\ni am neat \nlol",
+                "drunk.txt": "=== SECURE NETWORK ===\nuser/Grakanak ➜ user/Veit-Sal\n=======================\nBEGIN MESSAGE LOG\n\n[04:05] Veit-Sal ➜ Grakanak\ngrak\ngrak\ngrak\ngrak\ngrak\ngrak\ngrak\n\n[04:11] Grakanak ➜ Veit-Sal\nYou have awoken me.\n\n[04:12] Veit-Sal ➜ Grakanak\ni just\nbro\ni just weaanted to say yy\ni love you\n\n[04:12] Grakanak ➜ Veit-Sal\nYou are intoxicated again.\n\n[04:13] Veit-Sal ➜ Grakanak\nim\nf\n,ine\nfuck u im allowed to be drunnkkk\nu shoiuld come over\n\n[04:14] Grakanak ➜ Veit-Sal\nI suppose that me visiting would not be tactical.\n\n[04:14] Veit-Sal ➜ Grakanak\ni dont knowwwwwww\nwe could cuddle\nrember when we did tha\nt\nitd be so nice\nto feel ur skinn\n\n[04:15] Grakanak ➜ Veit-Sal\nDo you need the company?\n\n[04:16] Veit-Sal ➜ Grakanak\nkind off\nlike i just cant rn bec\nmy fuckin\nfuckin parents\n\n[04:20] Grakanak ➜ Veit-Sal\nI could come over."
+            };
+
+            // --- User Data and File System (Full data restored) ---
+            const users = {
+                "veit-sal": { 
+                    displayName: "Veit-Sal", password: "green", id: 3,
+                    fileSystem: { 
+                        "medical.exe": "EXECUTABLE::medical", 
+                        "citadel-user-data": { 
+                            "user-oden-about.txt": "###USER DATA###\nOd’en\n~ the Heir ~\nSpecies: Illithid\nOrigin: The Material Plane\nCurrent Residence: The Citadel of Accord\n=======================================",
+                            "user-viet-sal-about.txt": "###USER DATA###\nVeit-Sal\n~ the Doctor ~\nSpecies: Illithid (Variant)\nOrigin: Verdant Chorus\nCurrent Residence: The Citadel of Accord\n=======================================", 
+                            "user-grakanak-about.txt": "###USER DATA###\nGrakanak\n~ the Architect ~\nSpecies: Illithid\nOrigin: Unknown Astral Plane\nCurrent Residence: The Citadel of Accord\n=======================================",
+                            "user-yzaenl-about.txt": "###USER DATA###\nYzaen'l\n~ the Sentinel ~\nSpecies: Illithid (Construct-Hybrid)\nOrigin: Mechanus (Adapted)\nCurrent Residence: The Citadel of Accord\n=======================================" 
+                        },
+                        "planes": {
+                            "AAAconvergence.txt": "###PLANE DATA###\nPlane Name: The Great Convergence (Historical Archive)\nRelative Size: Variable (Conceptual)\nResident Population: N/A (Archival Data)\nThrall Population: N/A\n% Illithid: N/A (Historical Data Point)\n=======================================\nThis file contains fragmented data regarding a theorized 'Great Convergence' of Illithid empires from eons past. Most data is corrupted or encrypted beyond current Citadel capabilities. Some scholars believe it refers to a unified Illithid consciousness, others a vast, interconnected network of Nautiloids. Its relevance to current planar politics is debatable but remains a point of interest for Grakanak.",
+                            "citadel-of-accord.txt": "###PLANE DATA###\nPlane Name: Citadel of Accord\nRelative Size: Small (Subjective)\nResident Population: 4 (Core Members)\nThrall Population: ~40 (Support Staff & Constructs)\n% Illithid: 100% (Core Members)\n=======================================\nAfter the fall of the Glass Eyes, the one known as Grakanak formed the Citadel as a coalition of members from various planes in an attempt to reconstruct principles of stable cross-planar governance. The plane centers around the aforementioned citadel, a large tall building constructed from thought itself. It winds and turns in ways out of order from typical illithid architecture. Passageways appear, vanish, and realign according to emotional states and philosophical resonance. No two residents walk the same route twice.\n\nWhere previous systems relied on hierarchical dominion or psychic domination, the Citadel was built on an experimental model: clarity, alignment, and calibrated will. Membership is exclusive by invitation, but political sentiment tends to view the Citadel as lower than other planes and not officially recognized as a location of value. To many, it is an anomaly: a philosophical project disguised as a sovereign plane.\n\nThe Citadel operates on a tethered boundary between ethical experimentation and metaphysical warfare. Since its formation, it has deflected several assimilation attempts and assaults, all coming from the Council. \n\nThe question is no longer whether the Citadel is stable.\n\nThe question is whether it intends to remain quiet.",
+                            "council-of-oa5.txt": "###PLANE DATA###\nPlane Name: Council of Oa'5 (Primary Seat)\nRelative Size: Large (Multi-Nautiloid Fleet & Strongholds)\nResident Population: Significant (Illithids & High-Ranking Thralls)\nThrall Population: Vast (Across multiple subjugated worlds)\n% Illithid: Dominant Leadership Caste\n=======================================\nThe Council of Oa'5 represents the largest and most aggressive Illithid power bloc currently known. They advocate for a return to traditional Illithid expansionism and the absolute psychic dominion of 'lesser' races. Their methods are ruthless, employing both overt military force and insidious psychic manipulation. The Citadel of Accord is viewed by the Council as a heretical and dangerous deviation from Illithid doctrine. Multiple attempts to assimilate or destroy the Citadel have been launched, so far unsuccessfully. Key figures include Elder Brain Oa, Supreme Tactician X'zz'glorg, and Chief Inquisitor Vrell.",
+                            "verdant-chorus.txt": "###PLANE DATA###\nPlane Name: Verdant Chorus\nRelative Size: Medium (Planar Forest)\nResident Population: Varied (Fey, Plant Creatures,少数 Illithid Hermits)\nThrall Population: Minimal (Mostly symbiotic relationships)\n% Illithid: Very Low (Veit-Sal is an anomaly)\n=======================================\nA plane of immense, sentient plant life and powerful fey courts. The Verdant Chorus operates on principles of natural cycles, growth, and decay, often alien to typical Illithid thought. Illithids are rare here, usually outcasts or those seeking refuge from more traditional empires. Veit-Sal's origins in the Chorus are unusual, and their medical knowledge incorporates unique bio-psionic techniques learned there.",
+                            "ZZothers.txt": "###PLANE DATA###\nPlane Name: Other Minor Planes (Compilation)\nRelative Size: Small to Tiny\nResident Population: Diverse, often singular or small groups\nThrall Population: Varies\n% Illithid: Sporadic\n=======================================\nThis is a catch-all designation for numerous demi-planes, pocket dimensions, and astral flotsam encountered by Citadel members. Includes records of brief interactions, trade outposts, or hazardous anomalies. Most are of little strategic importance but are cataloged for completeness and potential resource acquisition or threat assessment. Examples: The Obsidian Library of Xantar, The Shifting Sands of Kai'rop, The Null-Space Anomaly GR-7."
+                        },
+                        "message-logs": {
+                            "oden-job-convo.txt": "=== SECURE NETWORK ===\nuser/Od’en on Datapad02\nuser/Veit-Sal on Datapad03\n=======================\nBEGIN MESSAGE LOG\n\n[23:01] Od’en ➜ Veit-Sal\nhey\nQuestion if I may\n\n[23:05] Veit-Sal ➜ Od’en\nyeah sure go ahead\nim bored lol\nbtw why r u up so late\n\n[23:06] Od’en ➜ Veit-Sal\nJust can’t sleep\nWhat did you do before the Citadel\nbefore Grak let you live here and stuff idk\n\n[23:08] Veit-Sal ➜ Od’en\nyeah i guess i never mentioned it\nwell\n\n[23:15] Veit-Sal ➜ Od’en\nwell im from the chorus u know that. i didnt like singing tho so i just did a lot of paperwork and helping people out there. i was this guys secretary for a while. then i started learning under the medical people and got into that. medicine was actually a lot easier than i expected lol\nand i liked it i guess\nhelping pople",
+                            "oden-pain.txt": "=== SECURE NETWORK ===\nuser/Od’en on Datapad02\nuser/Veit-Sal on Datapad03\n=======================\nBEGIN MESSAGE LOG\n\n[20:18] Od’en ➜ Veit-Sal\nCan you come to my room please\n\n[20:19] Veit-Sal ➜ Od’en\nyez\nwhy\n\n[20:20] Od’en ➜ Veit-Sal\nBring cookies or soup or something\nIdk\nI’m not feeling great tbhhhh\n\n[20:21] Veit-Sal ➜ Od’en\n:( \nim omw\n\n%%% NEW MESSAGE LOG %%%\n\n=== SECURE NETWORK ===\nuser/Grakanak on Datapad01\nuser/Veit-Sal on Datapad03\n=======================\nBEGIN MESSAGE LOG\n\n[20:39] Veit-Sal ➜ Grakanak\noden is not in good shape\ni dont think it’s what u had the other day\ni think its council bullshit again\nhis psionics r fucked\n\n[20:41] Grakanak ➜ Veit-Sal\nAnother undue burden.\nCan you attempt to identify the council member that may be doing such a thing?\n\n[20:42] Veit-Sal ➜ Grakanak\nbro what\ncan u come comfort him\nhello\nhe is like not doing well i need u here\n\n[20:43] Grakanak ➜ Veit-Sal\nI am on my way.\nAfter this, I expect you to look into it.\nPerhaps there is someone on the network.\n\n[20:44] Veit-Sal ➜ Grakanak\nwut\n\n[20:45] Grakanak ➜ Veit-Sal\nPlease check if another user has been added to the medical records after this.\nID 5.\nI thought I saw something change in the computers.\nI am suspicious.\n\n[20:46] Veit-Sal ➜ Grakanak\nim not remembering that lol",
+                            "grak-convo-DETAILS-LOCKTHISLATER.txt": "=== SECURE NETWORK ===\nuser/Grakanak on Datapad01\nuser/Veit-Sal on Datapad03\n=======================\n\n[15:48] Veit-Sal ➜ Grakanak\nheyyy how r u feeling\n\n[15:52] Grakanak ➜ Veit-Sal\nI am still feeling ill.\nReading. Od’en said it helps him feel better.\nDid you have a message for me? \n\n[15:54] Veit-Sal ➜ Grakanak\nwell first of all\nsry ur still sick\nthat sucks\nbut i had a question\nur not gonna like it\n\n[15:56] Grakanak ➜ Veit-Sal\nThank you for your condolences. Your request?\n\n[15:57] Veit-Sal ➜ Grakanak\ncan i have ur admin password\n\n[15:58] Grakanak ➜ Veit-Sal\nWhy?\n\n[16:00] Veit-Sal ➜ Grakanak\nthe training room is locked\ni cant override getting in w/o it \npls\nu can just change it later\nim not gonna do anything bad\n\n[16:02] Grakanak ➜ Veit-Sal\nHow do I know this is you? Was there an invasion of the Citadel’s systems?\n\n[16:04] Veit-Sal ➜ Grakanak\nugh\none min\n\n[16:10] Veit-Sal ➜ Grakanak\nQU5EIFNPIEkgR0FWRSBZT1UgVEhFIEtOT1dMRURHRSBPRiBNWSBNSU5ELCBBTkQgSVQgV0FTIFRIRSBLTk9XTEVER0UgVEhBVCBNWSBXT1JEUyBIT0xEIFRSVUUu\nwait other one is sending\nQU5EIElUIElTIFdJVEggVEhJUyBJIEdJVkUgWU9VIE1ZIFVUTU9TVCBXT1JEIEFORCBMQVkgRE9XTiBNWSBHVUFSRCBGT1IgWU9VIFRPIFNFRSBNWSBUUlVFIElERU5USVRZLiBJVCBJUyBJIEJ056ZIFRIRSBDSVRBREVMIEFORCBJIEFMT05F\n\n[16:11] Grakanak ➜ Veit-Sal\n[ Message sent in a script undisplayable by this monitor. ]\n\n[16:12] Veit-Sal ➜ Grakanak\n[ Message sent in a script undisplayable by this monitor. ]\ni hate talking in the old language\n\n[16:12] Grakanak ➜ Veit-Sal\nThe old language is where we are from. Where Od’en will from be.\n\n[16:13] Veit-Sal ➜ Grakanak\nok so\nthat makes no sense\nanyways ur password\n\n[16:13] Grakanak ➜ Veit-Sal\nRed.\nNo capitals or period.\n\n[16:15] Veit-Sal ➜ Grakanak\nu just made it ur fave color\nhow creative\ncouldnt be me\nlol hahahahaha\nanyways\nty ly grak\n\n[16:16] Grakanak ➜ Veit-Sal\nHm.",
+                            "yzaenl.txt": "=== SECURE NETWORK ===\nuser/Veit-Sal on Datapad03\nuser/Yzaen’l on Datapad04\n=======================\n\n[05:43] Yzaen’l ➜ Veit-Sal \nVeit.\n\n[08:39] Veit-Sal ➜ Yzaen’l \nhi sorry didnt see this\nu get up early lol\nwhat’s up big guy?\n\n[08:40] Yzaen’l ➜ Veit-Sal \nI have a question.\n\n[08:42] Veit-Sal ➜ Yzaen’l \nsure\n\n[08:43] Yzaen’l ➜ Veit-Sal \nI have noticed that you and Grakanak are close friends. \nThis relationship seems to be further seen between Od’en and you.\nI would like to understand the tactical benefit.\n\n[08:44] Veit-Sal ➜ Yzaen’l \num\nso ur like asking\nwhy are we friends?\nwe’re all friends wym\n\n[08:45] Veit-Sal ➜ Yzaen’l \nIt goes beyond our relationship.\nIt seems romantic in nature. \nCould you define it?\n\n[08:45] Veit-Sal ➜ Yzaen’l \nummmmmmmmmm\nok so\nme and grak used to date\nthat was one thing. that is over. lol\nus 3 tho it’s not rlly like dating\nbut it’s sorta romantic? \nidk\ni dont rlly wanna label it\n\n[08:46] Yzaen’l ➜ Veit-Sal \nWhy do you perform this relationship act?\n\n[08:47] Veit-Sal ➜ Yzaen’l \ni rlly think u r reading into it too much\n\n[08:47] Yzaen’l ➜ Veit-Sal \nNegative. Nothing is too much for observation.\n\n[08:48] Veit-Sal ➜ Yzaen’l \nright\nso i just wouldnt worry abt it\nit’s just casual ok?\nif u want to do anything together too u can lmk\nwe all like u \nnobody hates u \n\n[08:49] Yzaen’l ➜ Veit-Sal \nYour confirmation is appreciated, Veit-Sal.\n\n[08:50] Veit-Sal ➜ Yzaen’l \nnp"
+                        },
+                        "notes-to-self.txt": "go to market in 2 days because sale on sweet bread\npw for grak acc in convos lock that\nask grak how to lock files\n^^^ important ^^\nneed to ask oden energy drink brand"
+                    }
+                },
+                "grakanak": {
+                    displayName: "Grakanak", password: "red", id: 1,
+                    fileSystem: {
+                        "admin-important": { 
+                            "permission-giving.exe": "EXECUTABLE::permission",
+                            "oden-kidnap-log.txt": "$$$$$$$$$$$$$$$$$$$ \n$ LIVE TRANSCRIPT $ \n$$$$$$$$$$$$$$$$$$$\n\nLOCATION ⇒ Od’en’s personal quarters \nRELATIVE TIME ⇒ 6 hours after recovery from Council stronghold\n\nGrakanak: I am here now. \nOd’en: Seventeen hours, Grak. Seventeen. \nOd’en: It was freezing. No light. No sound but my own breath— \nOd’en: and then not even that. \nOd’en: It was cold, and it was dark, and it was hollow, and I hated every second of it. \nVeit-Sal: But you’re here. You’re here. You made it back. \nVeit-Sal: We’re not letting go. I’m not letting go. \nOd’en: It’s still in me. \nOd’en: Like they carved something out and left the hole behind. \nOd’en: I don’t even know what they took. \nOd’en: But I know I’ll never get it back. \nGrakanak: You must tell us what happened. Every detail. \nGrakanak: Only truth will solve this. \nOd’en: They’re fucking fascists. \nOd’en: And I’m being dragged from my bed by cowards in uniforms who smile while they erase people.\\* \nVeit-Sal: They’ll pay for it. \nVeit-Sal: I swear to you, Od’en—they’ll pay. \nGrakanak: Do not say such things, Veit— \nVeit-Sal: No. Don’t you dare, Grak. \nVeit-Sal: He was taken. Tortured. Threatened. \nVeit-Sal: You heard what they told the Fold—surrender, or disappear. \nVeit-Sal: They murder and rewrite and call it governance. \nVeit-Sal: You want measured analysis? Later. Not now. \nGrakanak: He is in pain. Escalation will not help. \nOd’en: What if I agree, Grak? \n[PAUSE — 4.6s]\nOd’en: They do have to pay. \nGrakanak: …Od’en? \nOd’en: I want them gone. I want them dead. \nGrakanak: Do you truly believe that? \nOd’en: Yes. \nOd’en: I am tired. \n[PAUSE — 5.2s] \nOd’en: Tired of being their experiment. Their symbol. \nOd’en: I’m tired of playing nice while they weaponize policy. \nOd’en: This is enough. \nOd’en: I want the leaders of the Council dead. \nOd’en: I want to watch it all burn. \nOd’en: And when it does, I will build what comes next. \n[PAUSE — 7.8s] \nGrakanak: …Why? \nOd’en: Because I was made for this. \nOd’en: Because if I can’t live among them, \nOd’en: I will end them. \n[PAUSE — 4.1s] \nVeit-Sal: There it is. \nOd’en: What? \nVeit-Sal: You’re beginning to understand. \nVeit-Sal: You’re meant for this. Not because you hate. \nVeit-Sal: Because you see what must be removed. \nGrakanak: I must admit— \nGrakanak: Your training was always meant to align with this truth. \nOd’en: Why me? \nGrakanak: Why not you? \nGrakanak: You’ve lived your entire life as a target. \nGrakanak: Embrace what we have given you, Od’en.\nOd’en: …I mean, yeah, but— \nVeit-Sal: Od’en. \nOd’en: What? \n[PAUSE — 3.0s] \nVeit-Sal: They will pay. \nVeit-Sal: And you will be the one who delivers it. \n[PAUSE — 2.5s] \nGrakanak: And we will guide your hand. \nGrakanak: But the choice—to act—is yours. \n[PAUSE — 6.7s] \nOd’en: To the death of the Council. To revolution."
+                        },
+                        "citadel-user-data": { /* Identical to Veit-Sal's, files directly under */
+                            "user-oden-about.txt": "###USER DATA###\nOd’en\n~ the Heir ~\nSpecies: Illithid\nOrigin: The Material Plane\nCurrent Residence: The Citadel of Accord\n=======================================" ,
+                            "user-viet-sal-about.txt": "###USER DATA###\nVeit-Sal\n~ the Doctor ~\nSpecies: Illithid (Variant)\nOrigin: Verdant Chorus\nCurrent Residence: The Citadel of Accord\n=======================================" , 
+                            "user-grakanak-about.txt": "###USER DATA###\nGrakanak\n~ the Architect ~\nSpecies: Illithid\nOrigin: Unknown Astral Plane\nCurrent Residence: The Citadel of Accord\n=======================================" ,
+                            "user-yzaenl-about.txt": "###USER DATA###\nYzaen'l\n~ the Sentinel ~\nSpecies: Illithid (Construct-Hybrid)\nOrigin: Mechanus (Adapted)\nCurrent Residence: The Citadel of Accord\n=======================================" 
+                        },
+                        "planes": { /* Identical to Veit-Sal's */ 
+                            "AAAconvergence.txt": "###PLANE DATA###\nPlane Name: The Great Convergence (Historical Archive)\nRelative Size: Variable (Conceptual)\nResident Population: N/A (Archival Data)\nThrall Population: N/A\n% Illithid: N/A (Historical Data Point)\n=======================================\nThis file contains fragmented data regarding a theorized 'Great Convergence' of Illithid empires from eons past. Most data is corrupted or encrypted beyond current Citadel capabilities. Some scholars believe it refers to a unified Illithid consciousness, others a vast, interconnected network of Nautiloids. Its relevance to current planar politics is debatable but remains a point of interest for Grakanak.",
+                            "citadel-of-accord.txt": "###PLANE DATA###\nPlane Name: Citadel of Accord\nRelative Size: Small (Subjective)\nResident Population: 4 (Core Members)\nThrall Population: ~40 (Support Staff & Constructs)\n% Illithid: 100% (Core Members)\n=======================================\nAfter the fall of the Glass Eyes, the one known as Grakanak formed the Citadel as a coalition of members from various planes in an attempt to reconstruct principles of stable cross-planar governance. The plane centers around the aforementioned citadel, a large tall building constructed from thought itself. It winds and turns in ways out of order from typical illithid architecture. Passageways appear, vanish, and realign according to emotional states and philosophical resonance. No two residents walk the same route twice.\n\nWhere previous systems relied on hierarchical dominion or psychic domination, the Citadel was built on an experimental model: clarity, alignment, and calibrated will. Membership is exclusive by invitation, but political sentiment tends to view the Citadel as lower than other planes and not officially recognized as a location of value. To many, it is an anomaly: a philosophical project disguised as a sovereign plane.\n\nThe Citadel operates on a tethered boundary between ethical experimentation and metaphysical warfare. Since its formation, it has deflected several assimilation attempts and assaults, all coming from the Council. \n\nThe question is no longer whether the Citadel is stable.\n\nThe question is whether it intends to remain quiet.",
+                            "council-of-oa5.txt": "###PLANE DATA###\nPlane Name: Council of Oa'5 (Primary Seat)\nRelative Size: Large (Multi-Nautiloid Fleet & Strongholds)\nResident Population: Significant (Illithids & High-Ranking Thralls)\nThrall Population: Vast (Across multiple subjugated worlds)\n% Illithid: Dominant Leadership Caste\n=======================================\nThe Council of Oa'5 represents the largest and most aggressive Illithid power bloc currently known. They advocate for a return to traditional Illithid expansionism and the absolute psychic dominion of 'lesser' races. Their methods are ruthless, employing both overt military force and insidious psychic manipulation. The Citadel of Accord is viewed by the Council as a heretical and dangerous deviation from Illithid doctrine. Multiple attempts to assimilate or destroy the Citadel have been launched, so far unsuccessfully. Key figures include Elder Brain Oa, Supreme Tactician X'zz'glorg, and Chief Inquisitor Vrell.",
+                            "verdant-chorus.txt": "###PLANE DATA###\nPlane Name: Verdant Chorus\nRelative Size: Medium (Planar Forest)\nResident Population: Varied (Fey, Plant Creatures,少数 Illithid Hermits)\nThrall Population: Minimal (Mostly symbiotic relationships)\n% Illithid: Very Low (Veit-Sal is an anomaly)\n=======================================\nA plane of immense, sentient plant life and powerful fey courts. The Verdant Chorus operates on principles of natural cycles, growth, and decay, often alien to typical Illithid thought. Illithids are rare here, usually outcasts or those seeking refuge from more traditional empires. Veit-Sal's origins in the Chorus are unusual, and their medical knowledge incorporates unique bio-psionic techniques learned there.",
+                            "ZZothers.txt": "###PLANE DATA###\nPlane Name: Other Minor Planes (Compilation)\nRelative Size: Small to Tiny\nResident Population: Diverse, often singular or small groups\nThrall Population: Varies\n% Illithid: Sporadic\n=======================================\nThis is a catch-all designation for numerous demi-planes, pocket dimensions, and astral flotsam encountered by Citadel members. Includes records of brief interactions, trade outposts, or hazardous anomalies. Most are of little strategic importance but are cataloged for completeness and potential resource acquisition or threat assessment. Examples: The Obsidian Library of Xantar, The Shifting Sands of Kai'rop, The Null-Space Anomaly GR-7."
+                        },
+                        "message-logs": {
+                            "oden-heir-conversation-veitsal.txt": "=== SECURE NETWORK ===\nuser/Grakanak on Datapad01\nuser/Veit-Sal on Datapad03\n=======================\n\n[10:00] Grakanak ➜ Veit-Sal\nVeit-Sal. Od'en's recent... outburst regarding the Council. It is concerning, yet potentially useful.\nHis desire for retribution, while raw, could be channeled. He is, after all, the Heir.\n\n[10:02] Veit-Sal ➜ Grakanak\n'Useful'? Grak, he was traumatized. He's finally showing some fire, yeah, but let's not treat him like a weapon.\n\n[10:03] Grakanak ➜ Veit-Sal\nEmpathy has its place. Strategic foresight has its own. They are not mutually exclusive.\nHis pain can be a catalyst for the change we both know is necessary. The Council will not cease their aggressions.\n\n[10:05] Veit-Sal ➜ Grakanak\nI know, I know. But he needs guidance, not just a target list. We need to be careful this doesn't consume him.\nHe said he'd 'build what comes next'. That's the part I'm holding onto.\n\n[10:06] Grakanak ➜ Veit-Sal\nPrecisely. And what is built must often be preceded by deconstruction.\nHis unique psionic signature, the very thing that makes him a target, also makes him uniquely capable.\nWe will guide him. But his will must be his own. The choice to act, truly act, must stem from his conviction, not our command.\n\n[10:08] Veit-Sal ➜ Grakanak\nAlright. But if he starts talking about burning down friendly libraries, I'm blaming you.\n\n[10:09] Grakanak ➜ Veit-Sal\nA calculated risk. Ensure his... 'deconstruction' efforts are appropriately focused." 
+                        },
+                        "notes-to-self.txt": "Do not falter. The Citadel's future depends on clarity and resolve. Od'en's development is paramount. The parasite entity (ID 5) remains a background concern; Veit-Sal's new permissions should allow them to handle it if it becomes an active threat."
+                    }
+                }
+            };
+            const userIDMap = { 1: "user/Grakanak", 2: "user/Od'en", 3: "user/Veit-Sal", 4: "user/Yzaen'l", 5: "user/parasite" };
+            const easterEggUsers = {
+                "qulto": "Error: I love me too, but wrong universe! Ha-ha!",
+                "parasite": "User found; no password available. Please set up in the maintenance room or contact Grakanak",
+                "axocract": "Error: No, actually… um, try logging as one of the people on the list, though.",
+                "gurlu": "Error: Ahh! Une célébrité!", "sig": "Error: Could not find the Mystic Medal",
+                "sigsteroni": "Error: Could not find the Mystic Medal", "malrn": "Error: Could not find this user. Did you mean “wildhoof”?",
+                "wildhoof": "Error: Could not find this user. Did you mean “mal”?", "mal": "Error: Could not find this user. Did you mean “malrn”?",
+                "typo": "Error: System too tired at this time", "jd": "Error: System too tired at this time",
+                "heeb": "Error: You are supposed to be inside the computer", "joey": "Error: Mac ate the computer chip with your user data. Get it? Chip?",
+                "joeyintensifies": "Error: Mac ate the computer chip with your user data. Get it? Chip?", "wzrdkiller": "Error: Please check back when I’m done with my cigarette",
+                "wzrdkllr": "Error: Please check back when I’m done with my cigarette", "chug": "Error: Please check back when I’m done with my cigarette",
+                "chugger": "Error: Please check back when I’m done with my cigarette", "barfchugger": "Error: Please check back when I’m done with my cigarette",
+                "gust": "Error: User data lost among the stars", "fqxy": "Error: You are locked out of the log in menu for 9999 more minutes. Please remember to ready up next time.",
+                "focksee": "Error: You are locked out of the log in menu for 9999 more minutes. Please remember to ready up next time.", "nick": "Error: You are locked out of the log in menu for 9999 more minutes. Please remember to ready up next time.",
+                "valentine": "Error: You are locked out of the log in menu for 9999 more minutes. Please remember to ready up next time.", "ivan": "Error: Wrong cult",
+                "ivanborukl": "Error: Wrong cult", "mystic": "Error: Something something beard",
+                "eagleman": "Error: Something something beard", "mistereaglman": "Error: Something something beard", 
+                "mreagleman": "Error: Something something beard", "derjj": "Error: Umm… I don’t think I’m supposed to be on here…",
+                "zutro": "Error: Errr, ya sure ya meant me? ‘ppreciate the thought, though.", "rei": "Error: :V",
+                "reicherdouji": "Error: :V", "phondle": "Error: Too much baow",
+                "ray": "Error: No login necessary, no Spike detected on this machine"
+            };
+            const otherKnownUsers = ["Od'en", "Yzaen'l"];
+            const otherKnownUsersNormalized = otherKnownUsers.map(u => u.toLowerCase().replace(/'/g, ""));
+            
+            // Utility Functions
+            function sanitizeHTML(text) { const temp = document.createElement('div'); temp.textContent = text; return temp.innerHTML; }
+            function displayInLoginMessages(htmlContent) { const p = document.createElement('p'); p.innerHTML = htmlContent; loginMessages.appendChild(p); loginMessages.scrollTop = loginMessages.scrollHeight; }
+            function displayInMainAppMessages(htmlContent) { const p = document.createElement('p'); p.innerHTML = htmlContent; mainAppMessages.appendChild(p); mainAppMessages.scrollTop = mainAppMessages.scrollHeight; }
+            function displayInFileContent(htmlContent) { fileContentDisplay.innerHTML = htmlContent; }
+            function appendToMedicalOutput(htmlContent) { 
+                const p = document.createElement('p');
+                p.innerHTML = htmlContent;
+                medicalOutput.appendChild(p);
+                medicalOutput.scrollTop = medicalOutput.scrollHeight;
+            }
+            function appendToPermissionStatus(htmlContent) { 
+                const p = document.createElement('p');
+                p.innerHTML = htmlContent;
+                permissionStatusDisplay.appendChild(p); 
+                permissionStatusDisplay.scrollTop = permissionStatusDisplay.scrollHeight;
+            }
+            
+            function clearProgramOutput(program) {
+                if (program === 'medical') {
+                    if (medicalOutput) {
+                        medicalOutput.innerHTML = '';
+                    } else {
+                        console.error("Error: medicalOutput element not found in clearProgramOutput.");
+                    }
+                }
+            }
+
+            function navigateToFsPath(pathArray) { 
+                let current = gameState.userFileSystemRoot;
+                for (const part of pathArray) {
+                    if (part === "") continue;
+                    let found = false;
+                    if (current && typeof current === 'object') {
+                        for (const key in current) {
+                            if (current.hasOwnProperty(key) && key.toLowerCase() === part.toLowerCase()) {
+                                current = current[key];
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!found) return null;
+                }
+                return current;
+            }
+            function getActualKeyName(parentObject, targetKeyName) { 
+                 if (parentObject && typeof parentObject === 'object') {
+                    for (const key in parentObject) {
+                        if (parentObject.hasOwnProperty(key) && key.toLowerCase() === targetKeyName.toLowerCase()) {
+                            return key;
+                        }
+                    }
+                }
+                return targetKeyName; 
+            }
+
+            function showPopupModal(title, message, onOk) {
+                if (popupModalTitle) popupModalTitle.textContent = title;
+                if (popupModalMessage) popupModalMessage.innerHTML = message; 
+                if (popupModalOverlay) popupModalOverlay.style.display = 'flex';
+                
+                const okButtonHandler = () => {
+                    if (popupModalOverlay) popupModalOverlay.style.display = 'none';
+                    if (onOk) onOk();
+                    if (popupModalClose) popupModalClose.removeEventListener('click', okButtonHandler); 
+                };
+                if (popupModalClose) { 
+                    popupModalClose.removeEventListener('click', okButtonHandler); 
+                    popupModalClose.addEventListener('click', okButtonHandler);
+                } else {
+                    console.error("popupModalClose element not found in showPopupModal");
+                }
+            }
+            
+            // GUI Update Functions
+            function updateLoginScreen() { 
+                if (loginMessages) loginMessages.innerHTML = '';
+                if (gameState.loginStep === 'awaitingUsername') {
+                    if (usernameInput) { usernameInput.value = ''; usernameInput.focus(); }
+                    if (passwordInputContainer) passwordInputContainer.style.display = 'none';
+                    if (loginFlowButton) loginFlowButton.textContent = 'Next';
+                    if (cancelUsernameButton) cancelUsernameButton.style.display = 'none';
+                } else if (gameState.loginStep === 'awaitingPassword') {
+                    if (passwordUserPrompt) passwordUserPrompt.innerHTML = `user/${sanitizeHTML(users[gameState.normalizedLoggedInUser]?.displayName || gameState.enteredUsername)}`;
+                    if (passwordInputContainer) passwordInputContainer.style.display = 'block';
+                    if (passwordInput) { passwordInput.value = ''; passwordInput.focus(); }
+                    if (loginFlowButton) loginFlowButton.textContent = 'Login';
+                    if (cancelUsernameButton) cancelUsernameButton.style.display = 'block';
+                }
+            }
+           
+            function displayInitialLoginState() { 
+                if (loginMessages) loginMessages.innerHTML = ''; 
+                let userListHTML = "<div class='text-left mb-1 text-xs'><span class='highlight'>Known User Profiles:</span></div>";
+                Object.values(users).forEach(u => {
+                    const displayName = sanitizeHTML(u.displayName);
+                    let status = "";
+                    if (u.displayName === "Od'en" || u.displayName === "Yzaen'l") {
+                        status = " <span class='unavailable'>(unavailable)</span>";
+                    }
+                    if (u.displayName === 'Veit-Sal' || u.displayName === 'Grakanak') {
+                        userListHTML += `  <div class="login-user-list-item text-xs"><strong>user/${displayName}</strong>${status}</div>`;
+                    } else {
+                        userListHTML += `  <div class="login-user-list-item text-xs">user/${displayName}${status}</div>`;
+                    }
+                });
+                otherKnownUsers.forEach(u => {
+                     userListHTML += `  <div class="login-user-list-item text-xs">user/${sanitizeHTML(u)} <span class='unavailable'>(unavailable)</span></div>`;
+                });
+                userListHTML += `<div class="text-left text-xs leading-tight pl-2 mt-1">  Other users may be available...</div>`;
+
+                if (loginUserListArea) loginUserListArea.innerHTML = userListHTML; 
+                
+                gameState.loginStep = 'awaitingUsername';
+                updateLoginScreen();
+            }
+            function updateMainAppScreen() { 
+                if (!gameState.loggedIn) return;
+                if (currentUserDisplay) currentUserDisplay.innerHTML = `user/${sanitizeHTML(users[gameState.normalizedLoggedInUser]?.displayName || gameState.enteredUsername)}`;
+                if (currentPathDisplay) currentPathDisplay.innerHTML = gameState.currentPath.join('/') || '';
+                populateFileList(); 
+                if (fileContentDisplay) fileContentDisplay.innerHTML = ''; 
+                if (mainAppMessages) mainAppMessages.innerHTML = '';
+                closeAnyProgramUI(); 
+            }
+            function updateCdUpButton() { 
+                if (!cdUpButton) return;
+                if (gameState.currentPath.length === 0) {
+                    cdUpButton.textContent = "At Root (Cannot Go Up)";
+                    cdUpButton.disabled = true;
+                    cdUpButton.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    const parentDirName = gameState.currentPath.length > 1 ? gameState.currentPath[gameState.currentPath.length - 2] : "Root";
+                    cdUpButton.textContent = `Return to: ${sanitizeHTML(parentDirName)}`;
+                    cdUpButton.disabled = false;
+                    cdUpButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            }
+            function populateFileList() { 
+                if (!fileListUL) return;
+                fileListUL.innerHTML = '';
+                const currentDir = navigateToFsPath(gameState.currentPath);
+                if (currentDir && typeof currentDir === 'object') {
+                    if (Object.keys(currentDir).length === 0) {
+                        const li = document.createElement('li');
+                        li.textContent = "Directory is empty.";
+                        li.className = 'text-gray-500 italic p-1 text-xs';
+                        fileListUL.appendChild(li);
+                    } else {
+                        Object.keys(currentDir).sort().forEach(key => { // .sort() ensures alphabetical order
+                            const item = currentDir[key];
+                            const li = document.createElement('li');
+                            li.textContent = key; 
+                            li.className = 'p-0.5 rounded hover:bg-gray-700 cursor-pointer break-all text-xs'; 
+                            let itemType = 'file'; 
+                            if (typeof item === 'object') { 
+                                li.textContent += '/'; 
+                                if (key === 'personal-archive') {
+                                    li.classList.add('archive-directory'); // Apply special color for personal-archive
+                                } else {
+                                    li.classList.add('directory'); 
+                                }
+                                itemType = 'directory';
+                            } else if (typeof item === 'string') {
+                                if (item.startsWith("IMAGE_LINK::")) { li.classList.add('image-file'); itemType = 'image'; }
+                                else if (item.startsWith("EXECUTABLE::")) { li.classList.add('exe-file'); itemType = 'executable'; }
+                                else { li.classList.add('file'); }
+                            }
+                            li.addEventListener('click', () => handleFileExplorerClick(key, itemType, item));
+                            fileListUL.appendChild(li);
+                        });
+                    }
+                } else {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="error">Error: Cannot access /${sanitizeHTML(gameState.currentPath.join('/'))}</span>`;
+                    li.className = 'p-1 text-xs';
+                    fileListUL.appendChild(li);
+                }
+                updateCdUpButton();
+            }
+             function closeAnyProgramUI(clearContentPanelTitle = true) { 
+                if (medicalProgramUI) medicalProgramUI.style.display = 'none';
+                if (permissionProgramUI) permissionProgramUI.style.display = 'none';
+                if (conversationUI) conversationUI.style.display = 'none';
+                if (medicalKillStage1Modal) medicalKillStage1Modal.style.display = 'none';
+                if (medicalKillStage2Modal) medicalKillStage2Modal.style.display = 'none';
+                if (medicalKillFinalConfirmModal) medicalKillFinalConfirmModal.style.display = 'none';
+                if (medicalScanIdModal) medicalScanIdModal.style.display = 'none';
+                if (medicalTerminateIdModal) medicalTerminateIdModal.style.display = 'none';
+
+                if(clearContentPanelTitle && contentPanelTitle) contentPanelTitle.textContent = "Output / Program Interface";
+                if (fileContentDisplay) fileContentDisplay.style.display = 'block'; 
+                gameState.activeProgram = null; // Ensure activeProgram is cleared
+            }
+
+            // Event Handlers
+            if (loginFlowButton) loginFlowButton.addEventListener('click', handleLoginFlow);
+            if (usernameInput) usernameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && gameState.loginStep === 'awaitingUsername') handleLoginFlow(); });
+            if (passwordInput) passwordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && gameState.loginStep === 'awaitingPassword') handleLoginFlow(); });
+            
+            if (forgotPasswordButton && typeof forgotPasswordButton.addEventListener === 'function') {
+                forgotPasswordButton.addEventListener('click', handleForgotPassword);
+            } else {
+                console.error("Error: forgotPasswordButton not found or is not a valid element.");
+            }
+
+            if (backToUsernameButton) backToUsernameButton.addEventListener('click', () => { gameState.loginStep = 'awaitingUsername'; updateLoginScreen(); });
+            if (cancelUsernameButton) cancelUsernameButton.addEventListener('click', () => { gameState.loginStep = 'awaitingUsername'; updateLoginScreen(); });
+            
+            if (logoutButton) logoutButton.addEventListener('click', handleLogout);
+            if (cdUpButton) cdUpButton.addEventListener('click', () => { if (!cdUpButton.disabled) handleCd('..'); });
+            if (tutorialButton) tutorialButton.addEventListener('click', displayTutorial); 
+            // Clear Output button removed
+            
+            if (medicalScanButton) medicalScanButton.addEventListener('click', () => { if (medicalScanIdModal) { medicalScanIdModal.style.display = 'block'; if (medicalScanIdInput) { medicalScanIdInput.value = ''; medicalScanIdInput.focus();}}});
+            if (medicalScanIdSubmit) medicalScanIdSubmit.addEventListener('click', processMedicalScan);
+            if (medicalScanIdInput) medicalScanIdInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') processMedicalScan(); });
+            if (medicalScanIdCancel) medicalScanIdCancel.addEventListener('click', () => { if (medicalScanIdModal) medicalScanIdModal.style.display = 'none';});
+            if (medicalTerminateButton) medicalTerminateButton.addEventListener('click', () => {
+                if (medicalTerminateIdModal) {
+                    medicalTerminateIdModal.style.display = 'block';
+                    if (medicalTerminateIdInput) { medicalTerminateIdInput.value = ''; medicalTerminateIdInput.focus(); }
+                }
+            });
+            if (medicalTerminateIdSubmit) medicalTerminateIdSubmit.addEventListener('click', initiateMedicalKillGUIflow);
+            if (medicalTerminateIdInput) medicalTerminateIdInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') initiateMedicalKillGUIflow(); });
+            if (medicalTerminateIdCancel) medicalTerminateIdCancel.addEventListener('click', () => { if (medicalTerminateIdModal) medicalTerminateIdModal.style.display = 'none'; });
+            if (medicalCloseButton) medicalCloseButton.addEventListener('click', closeMedicalProgram);
+            
+            if (medicalKillS1Proceed) medicalKillS1Proceed.addEventListener('click', () => handleMedicalKillGUIConfirmation('stage1-proceed'));
+            if (medicalKillS1Cancel) medicalKillS1Cancel.addEventListener('click', () => handleMedicalKillGUIConfirmation('stage1-cancel'));
+            if (medicalKillS2Verify) medicalKillS2Verify.addEventListener('click', () => handleMedicalKillGUIConfirmation('stage2-verify'));
+            if (medicalKillS2Cancel) medicalKillS2Cancel.addEventListener('click', () => handleMedicalKillGUIConfirmation('stage2-cancel'));
+            if (medicalKillS3Execute) medicalKillS3Execute.addEventListener('click', () => handleMedicalKillGUIConfirmation('stage3-execute'));
+            if (medicalKillS3Abort) medicalKillS3Abort.addEventListener('click', () => handleMedicalKillGUIConfirmation('stage3-abort'));
+
+            if (permissionApplyButton) permissionApplyButton.addEventListener('click', processPermissionApply);
+            if (permissionCloseButton) permissionCloseButton.addEventListener('click', closePermissionProgram);
+
+            if (conversationSubmitButton) conversationSubmitButton.addEventListener('click', () => handleConversationInput(conversationInput.value));
+            if (conversationInput) conversationInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleConversationInput(conversationInput.value); });
+            
+            if (popupModalClose) popupModalClose.addEventListener('click', () => { if (popupModalOverlay) popupModalOverlay.style.display = 'none'; });
+            if (sessionEndedCloseButton) sessionEndedCloseButton.addEventListener('click', () => { 
+                if (sessionEndedModalOverlay) sessionEndedModalOverlay.style.display = 'none';
+                if (!gameState.archiveUnlocked) {
+                     // Add the new folder and refresh the UI
+                    gameState.userFileSystemRoot["personal-archive"] = personalArchive;
+                    gameState.archiveUnlocked = true;
+                    populateFileList();
+                    displayInMainAppMessages("<span class='highlight p-2 block rounded bg-yellow-600 text-yellow-100'>NOTICE: A previously suppressed personal archive is now accessible in your root directory.</span>");
+                }
+            });
+
+
+            // Core Logic
+            function handleLoginFlow() { 
+                if (loginMessages) loginMessages.innerHTML = ''; 
+                if (gameState.loginStep === 'awaitingUsername') {
+                    const username = usernameInput.value.trim();
+                    if (!username) { displayInLoginMessages("<span class='error'>Username cannot be empty.</span>"); return; }
+                    gameState.enteredUsername = username;
+                    const normalizedUsernameInput = username.toLowerCase().replace(/'/g, "");
+                    if (users[normalizedUsernameInput]) {
+                        gameState.normalizedLoggedInUser = normalizedUsernameInput;
+                        gameState.loginStep = 'awaitingPassword';
+                        updateLoginScreen();
+                    } else if (easterEggUsers[normalizedUsernameInput]) {
+                        displayInLoginMessages(`<span class="error">${sanitizeHTML(easterEggUsers[normalizedUsernameInput])}</span>`);
+                    } else if (otherKnownUsersNormalized.includes(normalizedUsernameInput)) {
+                        displayInLoginMessages("<span class='error'>Error: Access for this user is currently unavailable.</span>");
+                    } else {
+                        displayInLoginMessages("<span class='error'>Error: Unknown user.</span>");
+                    }
+                } else if (gameState.loginStep === 'awaitingPassword') {
+                    const password = passwordInput.value; 
+                    const currentUserData = users[gameState.normalizedLoggedInUser];
+                    if (password === currentUserData.password) {
+                        gameState.loggedIn = true;
+                        gameState.userFileSystemRoot = JSON.parse(JSON.stringify(users[gameState.normalizedLoggedInUser].fileSystem)); 
+                        gameState.currentPath = [];
+                        if(loginScreen) loginScreen.style.display = 'none'; 
+                        if(mainAppScreen) mainAppScreen.style.display = 'flex'; 
+                        updateMainAppScreen();
+                        displayInMainAppMessages(`<span class="success">Login successful.</span>`);
+                        // console.log("Login as Veit-Sal, killPerm:", gameState.permissions.veitSalCanKillParasite, "notified:", gameState.permissions.veitSalNotifiedOfKillPerm);
+                        if (gameState.normalizedLoggedInUser === "veit-sal" && gameState.permissions.veitSalCanKillParasite && !gameState.permissions.veitSalNotifiedOfKillPerm) { 
+                            setTimeout(() => {
+                                displayInMainAppMessages("<span class='highlight p-2 block rounded bg-yellow-600 text-yellow-100'>NOTICE: Your account privileges have been updated by an administrator.</span>");
+                                gameState.permissions.veitSalNotifiedOfKillPerm = true;
+                            }, 700);
+                        }
+                    } else {
+                        displayInLoginMessages("<span class='error'>Incorrect password.</span>");
+                    }
+                }
+            }
+            function handleForgotPassword() { 
+                 if (gameState.loginStep === 'awaitingPassword' && gameState.normalizedLoggedInUser) {
+                     const hints = {
+                         "veit-sal": "Password hint: <span class='highlight'>the password is green (note to self change this later)</span>",
+                         "grakanak": "Password hint: <span class='highlight'>You should know this.</span>"
+                     };
+                     if (hints[gameState.normalizedLoggedInUser]) {
+                         displayInLoginMessages(hints[gameState.normalizedLoggedInUser]);
+                     } else {
+                         displayInLoginMessages("<span class='error'>No password hint available for this user.</span>");
+                     }
+                     if (passwordInput) passwordInput.focus(); 
+                 }
+            }
+            function handleLogout() { 
+                const currentKillPerm = gameState.permissions.veitSalCanKillParasite; 
+
+                if (logoutModalMessage && typeof logoutModalMessage.innerHTML !== 'undefined') {
+                    logoutModalMessage.innerHTML = "Session Terminated."; 
+                } else {
+                     console.error("Error: logoutModalMessage not found or cannot set innerHTML in handleLogout (start).");
+                }
+                if (logoutModalOverlay && typeof logoutModalOverlay.style !== 'undefined') {
+                    logoutModalOverlay.style.display = 'flex';
+                } else {
+                    console.error("Error: logoutModalOverlay not found or cannot set style in handleLogout (start).");
+                }
+
+                setTimeout(() => { 
+                    if (logoutModalOverlay && typeof logoutModalOverlay.style !== 'undefined') {
+                        logoutModalOverlay.style.display = 'none';
+                    } else {
+                         console.error("Error: logoutModalOverlay not found or cannot set style in handleLogout (hide).");
+                    }
+                    gameState = { 
+                        currentPath: [], loggedIn: false, loginStep: 'awaitingUsername', enteredUsername: '',
+                        normalizedLoggedInUser: '', userFileSystemRoot: {}, activeProgram: null, programState: {},
+                        permissions: { 
+                            veitSalCanKillParasite: currentKillPerm, 
+                            veitSalNotifiedOfKillPerm: false 
+                        },
+                        userAccessLevels: { "veit-sal": "BASIC", "grakanak": "ADMIN", "od'en": "BASIC", "yzaen'l": "BASIC" },
+                        parasiteKilled: gameState.parasiteKilled, 
+                        parasiteScanned: false, 
+                        activeConversation: null,
+                        conversationState: { step: 0, typingIndicatorInterval: null, currentMessageElement: null, messageQueue: [], promptMessageShown: false },
+                        gameConcluded: gameState.gameConcluded 
+                    };
+                    if (mainAppScreen) mainAppScreen.style.display = 'none'; 
+                    if (loginScreen) loginScreen.style.display = 'flex'; 
+                    closeAnyProgramUI(); 
+                    if (mainAppMessages) mainAppMessages.innerHTML = ''; 
+                    if (fileContentDisplay) fileContentDisplay.innerHTML = '';
+                    displayInitialLoginState();
+                }, 300); 
+            }
+            function handleFileExplorerClick(itemName, itemType, itemData) { 
+                if (gameState.activeProgram) {
+                    closeAnyProgramUI(false); 
+                }
+                
+                if (fileContentDisplay) fileContentDisplay.innerHTML = ''; 
+                if (mainAppMessages) mainAppMessages.innerHTML = ''; 
+
+                if (itemType === 'directory') { handleCd(itemName); }
+                else if (itemType === 'file' || itemType === 'image' || itemType === 'executable') {
+                    const actualItemName = getActualKeyName(navigateToFsPath(gameState.currentPath), itemName);
+                    const fileContent = navigateToFsPath([...gameState.currentPath, actualItemName]);
+                    if (typeof fileContent === 'string') {
+                        if (fileContent.startsWith("IMAGE_LINK::")) {
+                            const imageUrl = fileContent.substring("IMAGE_LINK::".length);
+                            if (modalImageElement) modalImageElement.src = imageUrl;
+                            if (modalImageElement) modalImageElement.onerror = () => { modalImageElement.alt = "Error loading image."; modalImageElement.src = "https://placehold.co/400x300/FF7B7B/FFFFFF?text=Image+Load+Error"; };
+                            if (modalTitleText) modalTitleText.textContent = `Viewing: ${sanitizeHTML(actualItemName)}`;
+                            if (imageModalOverlay) imageModalOverlay.style.display = 'flex';
+                        } else if (fileContent.startsWith("EXECUTABLE::")) {
+                            const programName = fileContent.substring("EXECUTABLE::".length);
+                            launchProgram(programName, actualItemName);
+                        } else {
+                            displayInFileContent(sanitizeHTML(fileContent).replace(/\n/g, '<br>'));
+                            if (contentPanelTitle) contentPanelTitle.textContent = `Viewing File: ${sanitizeHTML(actualItemName)}`;
+                        }
+                    } else { displayInMainAppMessages(`<span class="error">Error: Could not open '${sanitizeHTML(itemName)}'.</span>`); }
+                }
+            }
+            function handleCd(targetDirName) { 
+                 let newPathCandidate;
+                const normalizedTarget = targetDirName.replace(/\/$/, ""); 
+                if (normalizedTarget === '/') { newPathCandidate = []; }
+                else if (normalizedTarget === '..') {
+                    newPathCandidate = [...gameState.currentPath];
+                    if (newPathCandidate.length > 0) newPathCandidate.pop();
+                } else {
+                    const targetParts = normalizedTarget.split('/').filter(p => p);
+                    let tempCheckPath = [...gameState.currentPath]; let validSubPath = true;
+                    for (const part of targetParts) {
+                        const currentLevelObject = navigateToFsPath(tempCheckPath); 
+                        const actualKey = getActualKeyName(currentLevelObject, part); 
+                        const dir = navigateToFsPath([...tempCheckPath, actualKey]); 
+                        if (dir && typeof dir === 'object') { tempCheckPath.push(actualKey); }
+                        else { validSubPath = false; break; }
+                    }
+                    if (validSubPath) { newPathCandidate = tempCheckPath; }
+                    else { displayInMainAppMessages(`<span class="error">cd: directory not found: ${sanitizeHTML(targetDirName)}</span>`); newPathCandidate = null; }
+                }
+                if (newPathCandidate !== null) { 
+                    const finalCheck = navigateToFsPath(newPathCandidate);
+                    if (newPathCandidate.length === 0 || (finalCheck && typeof finalCheck === 'object')) { gameState.currentPath = newPathCandidate; }
+                    else if (newPathCandidate.length > 0 && (!finalCheck || typeof finalCheck !== 'object')) { displayInMainAppMessages(`<span class="error">cd: cannot access: /${sanitizeHTML(newPathCandidate.join('/'))}</span>`);}
+                }
+                updateMainAppScreen(); 
+            }
+            function launchProgram(programName, fullProgramFileName) { 
+                closeAnyProgramUI(false); 
+                if (fileContentDisplay) fileContentDisplay.style.display = 'none'; 
+                if (contentPanelTitle) contentPanelTitle.textContent = `Initializing: ${sanitizeHTML(fullProgramFileName)}...`;
+                
+                if (typeof clearProgramOutput !== 'function') {
+                    console.error("CRITICAL ERROR: clearProgramOutput function is not defined globally or in scope of launchProgram.");
+                    displayInMainAppMessages("<span class='error'>Critical system error. Program cannot be launched.</span>");
+                    return;
+                }
+
+                if (programName === "medical" && gameState.normalizedLoggedInUser === "veit-sal") {
+                    gameState.activeProgram = "medical"; gameState.programState = {}; 
+                    if (medicalProgramUI) medicalProgramUI.style.display = 'flex'; 
+                    if (medicalScanIdModal) medicalScanIdModal.style.display = 'none'; 
+                    if (medicalTerminateIdModal) medicalTerminateIdModal.style.display = 'none';
+                    clearProgramOutput('medical'); 
+                    updateMedicalStatusDisplay(); 
+                    if (contentPanelTitle) contentPanelTitle.textContent = `Medical System Interface`;
+                } else if (programName === "permission" && gameState.normalizedLoggedInUser === "grakanak") {
+                    gameState.activeProgram = "permission"; gameState.programState = {};
+                    if (permissionProgramUI) permissionProgramUI.style.display = 'flex';
+                    populatePermissionProgramUI(); 
+                    if (contentPanelTitle) contentPanelTitle.textContent = `Administrative Access Control`;
+                } else { 
+                    displayInMainAppMessages(`<span class="error">Error: Cannot run ${sanitizeHTML(fullProgramFileName)}. Permission denied or program not found for current user.</span>`); 
+                    if (fileContentDisplay) fileContentDisplay.style.display = 'block'; 
+                    if (contentPanelTitle) contentPanelTitle.textContent = "Output / Program Interface"; 
+                }
+            }
+            function displayTutorial() { 
+                 const tutorialText = "<span class='tutorial-text'>--- Citadel GUI Tutorial & Help ---</span><br><br>" +
+                                      "<b>General Navigation:</b><br>" +
+                                      " - Click on directories (ending with '/') in the File Explorer to enter them.<br>" +
+                                      " - Click on files to view their content or run programs.<br>" +
+                                      " - Use the 'Return to: [Folder Name]' button to go to the parent directory.<br>" +
+                                      " - 'Logout' (top right) ends your session.<br><br>" +
+                                      "<b>Program Interaction:</b><br>" +
+                                      " - When a program (.exe file) is opened, it will take over the right panel.<br>" +
+                                      " - Use the specific buttons and inputs provided within each program's interface.<br>" +
+                                      " - Each program has its own 'Close Program' button.<br><br>" +
+                                      "<b>Medical Program (`medical.exe` - Veit-Sal Only):</b><br>" +
+                                      " - 'Scan User ID': Prompts for an ID to check user status.<br>" +
+                                      " - 'Terminate Target...': Click to open a prompt to enter the Target ID. <br>" +
+                                      "   - ID 5 (parasite): If scanned and you have kill permissions, initiates a multi-stage confirmation process.<br>" +
+                                      "   - IDs 1-4: Will state core members cannot be terminated this way.<br>" +
+                                      "   - Other IDs: Will state target is undetected.<br><br>" +
+                                      "<b>Permission Program (`permission-giving.exe` - Grakanak Only):</b><br>" +
+                                      " - Select a 'Target User' from the first dropdown.<br>" +
+                                      " - Select the desired 'New Access Level' from the second dropdown.<br>" +
+                                      " - Click 'Apply Permissions'. A confirmation will appear.<br>" +
+                                      " - The 'Current Access Levels' section updates automatically.<br><br>" +
+                                      "<span class='tutorial-text'>--- End of Tutorial & Help ---</span>";
+                displayInFileContent(tutorialText); 
+                if (contentPanelTitle) contentPanelTitle.textContent = "Tutorial & Help";
+            }
+
+            // Medical Program
+            function updateMedicalStatusDisplay() { 
+                // console.log("updateMedicalStatusDisplay. Flags:", 
+                //     `parasiteScanned: ${gameState.parasiteScanned}`, 
+                //     `parasiteKilled: ${gameState.parasiteKilled}`, 
+                //     `veitSalCanKillParasite: ${gameState.permissions.veitSalCanKillParasite}`
+                // );
+                let statusHTML = "<table><thead><tr><th class='text-left pr-4 py-1'>USER</th><th class='text-left pr-4 py-1'>STATUS</th><th class='text-left py-1'>ID</th></tr></thead><tbody>";
+                const baseUsers = [1, 2, 3, 4]; 
+                baseUsers.forEach(id => {
+                    const userName = sanitizeHTML(userIDMap[id]);
+                    let userStatus = "<span class='status-offline'>OFFLINE</span>";
+                    if (id === 3) userStatus = "<span class='status-ok'>ONLINE (Terminal 1)</span>";
+                    if (id === 2 && gameState.parasiteKilled) userStatus = "<span class='status-ok'>ONLINE (RECOVERING)</span>";
+                    statusHTML += `<tr><td class='pr-4 py-0.5'>${userName}</td><td class='pr-4 py-0.5'>${userStatus}</td><td class='py-0.5'>${id}</td></tr>`;
+                });
+                if (gameState.parasiteScanned) {
+                    const parasiteName = sanitizeHTML(userIDMap[5]);
+                    let parasiteStatus = gameState.parasiteKilled ? "<span class='status-terminated'>TERMINATED</span>" : "<span class='status-detected'>DETECTED</span>";
+                    statusHTML += `<tr><td class='pr-4 py-0.5'>${parasiteName}</td><td class='pr-4 py-0.5'>${parasiteStatus}</td><td class='py-0.5'>5</td></tr>`;
+                }
+                statusHTML += "</tbody></table>";
+                if (medicalStatusDisplay) medicalStatusDisplay.innerHTML = statusHTML;
+            }
+            function processMedicalScan() { 
+                const idToScan = parseInt(medicalScanIdInput.value);
+                if (medicalScanIdModal) medicalScanIdModal.style.display = 'none'; 
+                if (isNaN(idToScan)) { appendToMedicalOutput("<span class='error'>Invalid ID.</span>"); return; }
+                if (userIDMap[idToScan]) {
+                    const userName = sanitizeHTML(userIDMap[idToScan]);
+                    appendToMedicalOutput(`<span class='info'>Scan: ID ${idToScan} → ${userName}</span>`);
+                    if (idToScan === 5) { 
+                        gameState.parasiteScanned = true; 
+                        appendToMedicalOutput(`<span class='warning-text'>Target ${userName} (ID 5) confirmed. Systems nominal.</span>`); 
+                    }
+                } else { appendToMedicalOutput(`<span class='info'>Scan: No user for ID ${idToScan}.</span>`); }
+                updateMedicalStatusDisplay();
+            }
+             function initiateMedicalKillGUIflow() { 
+                const targetIdToConfirm = parseInt(medicalTerminateIdInput.value);
+                if (medicalTerminateIdModal) medicalTerminateIdModal.style.display = 'none';
+
+                if (isNaN(targetIdToConfirm)) {
+                    appendToMedicalOutput("<span class='error'>Invalid Target ID entered for termination.</span>");
+                    return;
+                }
+
+                if (targetIdToConfirm >= 1 && targetIdToConfirm <= 4) {
+                    appendToMedicalOutput("<span class='error'>This interface cannot be used to terminate core Citadel members.</span>");
+                    return;
+                }
+                
+                if (targetIdToConfirm === 5) { // Parasite
+                    // console.log("Attempting to terminate ID 5. Scanned:", gameState.parasiteScanned, "Killed:", gameState.parasiteKilled, "Perm:", gameState.permissions.veitSalCanKillParasite);
+                    if (!gameState.parasiteScanned) {
+                         appendToMedicalOutput("<span class='error'>Target user/parasite (ID 5) must be scanned before termination can be initiated.</span>");
+                         return;
+                    }
+                    if (gameState.parasiteKilled) {
+                        appendToMedicalOutput("<span class='info'>Target user/parasite (ID 5) has already been terminated.</span>");
+                        return;
+                    }
+                    if (!gameState.permissions.veitSalCanKillParasite) {
+                        appendToMedicalOutput("<span class='error'>Insufficient permissions to terminate user/parasite. Please have an administrator grant kill authorization.</span>");
+                        return;
+                    }
+                    // All checks pass for parasite, proceed to confirmation modals
+                    appendToMedicalOutput("<span class='warning-text'>Termination protocol for user/parasite (ID 5) initiated...</span>");
+                    if (medicalKillStage1Modal) medicalKillStage1Modal.style.display = 'flex';
+
+                } else { // ID 6+ or other invalid numbers
+                     appendToMedicalOutput(`<span class='info'>Target ID ${targetIdToConfirm} undetected for termination.</span>`);
+                }
+            }
+            function handleMedicalKillGUIConfirmation(action) { 
+                 switch(action) {
+                    case 'stage1-proceed': if(medicalKillStage1Modal) medicalKillStage1Modal.style.display = 'none'; if(medicalKillStage2Modal) medicalKillStage2Modal.style.display = 'flex'; if(medicalKillS2Sentence) {medicalKillS2Sentence.value = ''; medicalKillS2Sentence.focus();} break;
+                    case 'stage1-cancel': if(medicalKillStage1Modal) medicalKillStage1Modal.style.display = 'none'; appendToMedicalOutput("<span class='info'>Termination cancelled by user.</span>"); break;
+                    case 'stage2-verify':
+                        const sentence = medicalKillS2Sentence.value; const expectedSentence = "I understand the consequences and wish to kill user/parasite";
+                        if (sentence === expectedSentence) { if(medicalKillStage2Modal) medicalKillStage2Modal.style.display = 'none'; if(medicalKillFinalConfirmModal) medicalKillFinalConfirmModal.style.display = 'flex'; if(medicalKillS3Password) {medicalKillS3Password.value = ''; medicalKillS3Password.focus();}}
+                        else { appendToMedicalOutput("<span class='error'>Authorization phrase mismatch.</span>"); if(medicalKillS2Sentence) medicalKillS2Sentence.focus(); }
+                        break;
+                    case 'stage2-cancel': if(medicalKillStage2Modal) medicalKillStage2Modal.style.display = 'none'; appendToMedicalOutput("<span class='info'>Termination cancelled by user.</span>"); break;
+                    case 'stage3-execute':
+                        const password = medicalKillS3Password.value;
+                        if (password === users["veit-sal"].password) {
+                            if(medicalKillFinalConfirmModal) medicalKillFinalConfirmModal.style.display = 'none';
+                            appendToMedicalOutput(`<span class='success'>FINAL AUTHORIZATION ACCEPTED. Terminating user/parasite...</span>`);
+                            gameState.parasiteKilled = true; updateMedicalStatusDisplay(); 
+                            setTimeout(() => {
+                                 appendToMedicalOutput(`<span class='kill-warning-text'><strong>USER/PARASITE HAS BEEN PERMANENTLY TERMINATED.</strong></span>`);
+                                 closeMedicalProgram(); setTimeout(triggerOdenConversation, 1500); 
+                            }, 1000);
+                        } else { appendToMedicalOutput("<span class='error'>Incorrect password. FINAL AUTHORIZATION DENIED.</span>"); if(medicalKillS3Password) medicalKillS3Password.focus(); }
+                        break;
+                    case 'stage3-abort': if(medicalKillFinalConfirmModal) medicalKillFinalConfirmModal.style.display = 'none'; appendToMedicalOutput("<span class='info'>Termination ABORTED at final stage.</span>"); break;
+                }
+            }
+            function closeMedicalProgram() { 
+                gameState.activeProgram = null; gameState.programState = {}; 
+                if(medicalProgramUI) medicalProgramUI.style.display = 'none';
+                if(medicalKillStage1Modal) medicalKillStage1Modal.style.display = 'none'; 
+                if(medicalKillStage2Modal) medicalKillStage2Modal.style.display = 'none'; 
+                if(medicalKillFinalConfirmModal) medicalKillFinalConfirmModal.style.display = 'none';
+                if(medicalScanIdModal) medicalScanIdModal.style.display = 'none'; 
+                if(medicalTerminateIdModal) medicalTerminateIdModal.style.display = 'none';
+                if(fileContentDisplay) fileContentDisplay.style.display = 'block'; 
+                if(contentPanelTitle) contentPanelTitle.textContent = "Output / Program Interface";
+                displayInMainAppMessages("Exited Medical System.");
+            }
+
+            // Permission Program
+            function populatePermissionProgramUI() { 
+                if(permissionSelectUser) permissionSelectUser.innerHTML = '';
+                ["veit-sal", "od'en", "yzaen'l"].forEach(normName => { 
+                    const user = Object.values(users).find(u => u.displayName.toLowerCase().replace(/'/g,"") === normName);
+                    if (user) { const option = document.createElement('option'); option.value = normName; option.textContent = sanitizeHTML(user.displayName); permissionSelectUser.appendChild(option); }
+                });
+                if(permissionSelectLevel) permissionSelectLevel.innerHTML = '';
+                ["NONE", "BASIC", "BASIC_AND_KILL_PERMS"].forEach(level => { const option = document.createElement('option'); option.value = level; option.textContent = level.replace(/_/g, ' '); permissionSelectLevel.appendChild(option); });
+                updatePermissionStatusDisplay(); 
+            }
+            function updatePermissionStatusDisplay() { 
+                let statusHTML = "";
+                const usersToDisplay = { 
+                    "veit-sal": userIDMap[3], "grakanak": userIDMap[1], 
+                    "od'en": userIDMap[2], "yzaen'l": userIDMap[4]
+                };
+                for (const normName in usersToDisplay) {
+                    const userDisplayName = sanitizeHTML(usersToDisplay[normName]);
+                    const id = Object.keys(userIDMap).find(key => userIDMap[key] === usersToDisplay[normName]);
+                    const level = gameState.userAccessLevels[normName] || "UNKNOWN"; 
+                    statusHTML += `<div>${userDisplayName} (ID ${id}): <span class='info'>${level}</span></div>`;
+                }
+                if (permissionStatusDisplay) permissionStatusDisplay.innerHTML = statusHTML;
+            }
+            function processPermissionApply() { 
+                const targetUserNorm = permissionSelectUser.value;
+                const newLevel = permissionSelectLevel.value;
+                const targetUserDisplayName = Object.values(users).find(u=> u.displayName.toLowerCase().replace(/'/g,"") === targetUserNorm)?.displayName || targetUserNorm;
+                if (!targetUserNorm || !newLevel) { 
+                    showPopupModal("Permission Error", "<span class='error'>User and Level must be selected.</span>");
+                    return; 
+                }
+                gameState.userAccessLevels[targetUserNorm] = newLevel;
+                showPopupModal("Permission Update", `<span class='success'>Access for ${sanitizeHTML(targetUserDisplayName)} successfully set to ${newLevel.replace(/_/g, ' ')}.</span>`);
+
+                if (targetUserNorm === "veit-sal") { 
+                    gameState.permissions.veitSalCanKillParasite = (newLevel === "BASIC_AND_KILL_PERMS"); 
+                    // console.log("veitSalCanKillParasite set to:", gameState.permissions.veitSalCanKillParasite);
+                }
+                updatePermissionStatusDisplay(); 
+                if (permissionApplyButton) {
+                    permissionApplyButton.classList.add('flash-green');
+                    setTimeout(() => permissionApplyButton.classList.remove('flash-green'), 700);
+                }
+            }
+            function closePermissionProgram() { 
+                gameState.activeProgram = null; 
+                if(permissionProgramUI) permissionProgramUI.style.display = 'none';
+                if(fileContentDisplay) fileContentDisplay.style.display = 'block'; 
+                if(contentPanelTitle) contentPanelTitle.textContent = "Output / Program Interface";
+                displayInMainAppMessages("Exited Admin Access Control.");
+            }
+            
+            // Conversation Logic
+            let typingChars = ['-', '\\', '|', '/']; let typingCharIndex = 0;
+            function animateTypingIndicator() { 
+                if (gameState.conversationState.currentMessageElement) {
+                    const typingSpan = gameState.conversationState.currentMessageElement.querySelector('.typing-indicator');
+                    if (typingSpan && typingSpan.style.display !== 'none') {
+                        typingSpan.textContent = typingChars[typingCharIndex];
+                        typingCharIndex = (typingCharIndex + 1) % typingChars.length;
+                    }
+                }
+            }
+            function appendToConversationLog(sender, text, type = 'message') { 
+                const messageDiv = document.createElement('div');
+                let displayText = "";
+                const sanitizedSender = sanitizeHTML(sender);
+                const processedText = (type === 'system-event' || type === 'system-prompt') ? text : sanitizeHTML(text);
+
+                if (type === 'system-event') { 
+                     messageDiv.className = 'system-event-log';
+                     displayText = processedText; 
+                } else if (type === 'system-prompt') { 
+                    messageDiv.className = 'system-prompt-log';
+                    displayText = processedText; 
+                } else if (sender === "Veit-Sal") {
+                    messageDiv.className = 'mb-1 text-right';
+                    displayText = `<span class="font-semibold text-green-300 inline-block bg-gray-700 px-2 py-1 rounded-md rounded-br-none">${sanitizedSender}:</span> <span class="inline-block bg-gray-700 px-3 py-1 rounded-md rounded-bl-none ml-1">${processedText}</span>`;
+                } else { // Oden
+                    messageDiv.className = 'mb-1 text-left';
+                    displayText = `<span class="font-semibold text-blue-300 inline-block bg-gray-750 px-2 py-1 rounded-md rounded-bl-none">${sanitizedSender}:</span> <span class="typing-indicator" style="display:inline-block;"></span><span class="message-text inline-block bg-gray-750 px-3 py-1 rounded-md rounded-br-none ml-1">${processedText}</span>`;
+                }
+                messageDiv.innerHTML = displayText;
+                if (conversationLog) conversationLog.appendChild(messageDiv);
+                if (conversationLog) conversationLog.scrollTop = conversationLog.scrollHeight;
+                return messageDiv;
+            }
+            async function processMessageQueue() { 
+                 if (gameState.conversationState.messageQueue.length === 0) {
+                    if (gameState.conversationState.typingIndicatorInterval) clearInterval(gameState.conversationState.typingIndicatorInterval);
+                    gameState.conversationState.typingIndicatorInterval = null;
+                    if (gameState.conversationState.currentMessageElement) {
+                         const finalTypingSpan = gameState.conversationState.currentMessageElement.querySelector('.typing-indicator');
+                         if(finalTypingSpan) finalTypingSpan.style.display = 'none'; 
+                    }
+                    gameState.conversationState.currentMessageElement = null;
+                    if (gameState.activeConversation === 'odenPostKill') {
+                        if ((gameState.conversationState.step === 1 || gameState.conversationState.step === 3) && !gameState.conversationState.promptMessageShown) { 
+                            appendToConversationLog("System", "Automatic answering system has been enabled for your convenience. Please input your CitadelSimpleResponse™ (y/n).", 'system-prompt');
+                            gameState.conversationState.promptMessageShown = true; // Set flag
+                            if(conversationInputArea) conversationInputArea.style.display = 'flex'; 
+                            if(conversationPrompt) conversationPrompt.textContent = "(y/n)>";
+                            if(conversationInput) { conversationInput.value = ''; conversationInput.focus(); }
+                        } else if (gameState.conversationState.step === 'credits') {
+                            await new Promise(resolve => setTimeout(resolve, 1000)); 
+                            displayCreditsGUI();
+                        }
+                    }
+                    return;
+                }
+                const messageItem = gameState.conversationState.messageQueue.shift();
+                const { sender, text, delay, isSystemEvent } = messageItem; 
+                
+                if (isSystemEvent) {
+                    appendToConversationLog("System", text, 'system-event');
+                } else if (sender === "Veit-Sal") { 
+                    const msgElement = appendToConversationLog(sender, text); 
+                    const typingIndicatorInVietSalMessage = msgElement.querySelector('.typing-indicator');
+                    if(typingIndicatorInVietSalMessage) typingIndicatorInVietSalMessage.style.display = 'none';
+                } else { // Oden's message
+                    gameState.conversationState.currentMessageElement = appendToConversationLog(sender, "", 'message');
+                    const textSpan = gameState.conversationState.currentMessageElement.querySelector('.message-text');
+                    const typingSpan = gameState.conversationState.currentMessageElement.querySelector('.typing-indicator');
+                    if (typingSpan) typingSpan.style.display = 'inline-block';
+                    if (textSpan) textSpan.textContent = ''; 
+                    if (gameState.conversationState.typingIndicatorInterval) clearInterval(gameState.conversationState.typingIndicatorInterval);
+                    gameState.conversationState.typingIndicatorInterval = setInterval(animateTypingIndicator, 200);
+                    if (conversationInputArea) conversationInputArea.style.display = 'none'; 
+                    await new Promise(resolve => setTimeout(resolve, delay)); 
+                    clearInterval(gameState.conversationState.typingIndicatorInterval);
+                    gameState.conversationState.typingIndicatorInterval = null;
+                    if(typingSpan) typingSpan.style.display = 'none';
+                    if(textSpan) textSpan.innerHTML = sanitizeHTML(text); 
+                }
+                await new Promise(resolve => setTimeout(resolve, isSystemEvent ? 200 : 500)); 
+                processMessageQueue(); 
+            }
+            async function triggerOdenConversation() {
+                closeAnyProgramUI(false); 
+                if (fileContentDisplay) fileContentDisplay.style.display = 'none';
+                if (conversationUI) conversationUI.style.display = 'flex'; 
+                if (contentPanelTitle) contentPanelTitle.textContent = "Incoming Transmission...";
+                if (conversationLog) conversationLog.innerHTML = ''; 
+                gameState.activeConversation = 'odenPostKill';
+                gameState.conversationState = {
+                    step: 0, typingIndicatorInterval: null, currentMessageElement: null,
+                    messageQueue: [
+                        { isSystemEvent: true, text: "<span class='kill-warning-text'>user/parasite has been killed.</span>", delay: 100},
+                        { isSystemEvent: true, text: "<span class='info'>Incoming message...</span>", delay: 1000},
+                        { isSystemEvent: true, text: "<span class='info'>Automatic Response System Initiated (Powered by CitadelAI)</span>", delay: 1000},
+                        { sender: "Od'en", text: "hello", delay: 1500 },
+                        { sender: "Od'en", text: "veit?", delay: 2000 }, 
+                        { sender: "Od'en", text: "Did you do something", delay: 2500 }
+                    ],
+                    promptMessageShown: false // Reset prompt shown flag
+                };
+                gameState.conversationState.step = 1; 
+                processMessageQueue();
+             }
+            function handleConversationInput(userInput) { 
+                const lowerInput = userInput.trim().toLowerCase();
+                if (!lowerInput) return;
+                if (conversationInput) conversationInput.value = ''; 
+                let veitResponseText = "";
+                gameState.conversationState.promptMessageShown = false; // Reset for next potential prompt
+
+                if (gameState.conversationState.step === 1) { 
+                    if (lowerInput === 'y') { veitResponseText = "yeah"; }
+                    else if (lowerInput === 'n') { veitResponseText = "nah"; }
+                    else { appendToConversationLog("System", "<span class='error'>Invalid input. Please use 'y' or 'n'.</span>", 'system-prompt'); if(conversationInput) conversationInput.focus(); return; }
+                    
+                    appendToConversationLog("Veit-Sal", veitResponseText);
+                    gameState.conversationState.messageQueue = (lowerInput === 'y') ? [
+                        { sender: "Od'en", text: "Whatever it was", delay: 1500 }, { sender: "Od'en", text: "Thank you", delay: 1000 },
+                        { sender: "Od'en", text: "God I could go for a drink lol", delay: 2000 }, { sender: "Od'en", text: "u wanna come?", delay: 1500 }
+                    ] : [
+                        { sender: "Od'en", text: "huh weird", delay: 1500 }, { sender: "Od'en", text: "well", delay: 1000 },
+                        { sender: "Od'en", text: "i feel better i guess? idk", delay: 2000 }, { sender: "Od'en", text: "more... alive?", delay: 1500 },
+                        { sender: "Od'en", text: "anyways wanna get a drink? im rlly bored", delay: 2500 }
+                    ];
+                    gameState.conversationState.step = 3; 
+                } else if (gameState.conversationState.step === 3) { 
+                    if (lowerInput === 'y') { veitResponseText = "yeah i could go for that"; }
+                    else if (lowerInput === 'n') { veitResponseText = "mmm im busy"; }
+                    else { appendToConversationLog("System", "<span class='error'>Invalid input. Please use 'y' or 'n'.</span>", 'system-prompt'); if(conversationInput) conversationInput.focus(); return; }
+
+                    appendToConversationLog("Veit-Sal", veitResponseText);
+                    gameState.conversationState.messageQueue = (lowerInput === 'y') ? 
+                        [ { sender: "Od'en", text: "yay lol ok ill be ready in 10", delay: 1500 } ] : 
+                        [ { sender: "Od'en", text: "eh your loss.", delay: 1500 } ];
+                    gameState.conversationState.step = 'credits'; 
+                }
+                if (conversationInputArea) conversationInputArea.style.display = 'none'; 
+                processMessageQueue();
+            }
+            async function displayCreditsGUI() { 
+                gameState.gameConcluded = true; 
+                if (sessionEndedModalOverlay) sessionEndedModalOverlay.style.display = 'flex';
+            }
+
+            // Image Modal Dragging
+            let isDragging = false; let offsetX, offsetY;
+            if (modalTitleBarDraggable) {
+                modalTitleBarDraggable.addEventListener('mousedown', (e) => { 
+                    if (e.target === modalTitleBarDraggable || e.target === modalTitleText) {
+                        isDragging = true; const rect = imageModalOverlay.getBoundingClientRect(); 
+                        offsetX = e.clientX - rect.left - imageModalWindow.offsetLeft; 
+                        offsetY = e.clientY - rect.top - imageModalWindow.offsetTop;
+                        imageModalWindow.style.cursor = 'grabbing'; e.preventDefault();
+                    }
+                });
+            }
+            document.addEventListener('mousemove', (e) => { 
+                if (!isDragging) return;
+                let newX = e.clientX - offsetX; 
+                let newY = e.clientY - offsetY;
+                const frameRect = document.getElementById('monitor-frame').getBoundingClientRect(); 
+                const modalRect = imageModalWindow.getBoundingClientRect();
+                newX = Math.max(frameRect.left, Math.min(newX, frameRect.right - modalRect.width));
+                newY = Math.max(frameRect.top, Math.min(newY, frameRect.bottom - modalRect.height));
+                imageModalWindow.style.left = `${newX - frameRect.left}px`; 
+                imageModalWindow.style.top = `${newY - frameRect.top}px`;
+                imageModalWindow.style.transform = 'none'; 
+            });
+            document.addEventListener('mouseup', () => { if (isDragging) { isDragging = false; if(imageModalWindow) imageModalWindow.style.cursor = 'default';} });
+            if (modalCloseButton) modalCloseButton.addEventListener('click', () => { if(imageModalOverlay) imageModalOverlay.style.display = 'none'; if(modalImageElement) modalImageElement.src = ""; });
+
+            // Pad text files to have the same number of lines
+            function padTextFiles() {
+                let maxLines = 0;
+                const textFilePaths = []; 
+
+                function findTextFiles(obj, currentPathArray) {
+                    for (const key in obj) {
+                        if (typeof obj[key] === 'object' && obj[key] !== null) {
+                            findTextFiles(obj[key], [...currentPathArray, key]);
+                        } else if (typeof obj[key] === 'string' && !obj[key].startsWith("IMAGE_LINK::") && !obj[key].startsWith("EXECUTABLE::")) {
+                            const lines = obj[key].split('\n').length;
+                            if (lines > maxLines) {
+                                maxLines = lines;
+                            }
+                            textFilePaths.push({ path: [...currentPathArray, key] });
+                        }
+                    }
+                }
+
+                // Find max lines in both users and personalArchive
+                for (const userName in users) {
+                    if (users[userName].fileSystem) {
+                         findTextFiles(users[userName].fileSystem, [userName, 'fileSystem']);
+                    }
+                }
+                findTextFiles(personalArchive, ['personalArchive']); // Also check personal archive files
+                
+                // Pad all found text files
+                textFilePaths.forEach(fileInfo => {
+                    let parent;
+                    let pathCopy = [...fileInfo.path];
+                    const firstPart = pathCopy.shift();
+
+                    if (firstPart === 'personalArchive') {
+                        parent = personalArchive;
+                    } else {
+                        parent = users[firstPart];
+                    }
+
+                    for(let i = 0; i < pathCopy.length - 1; i++){
+                        parent = parent[pathCopy[i]];
+                    }
+                    const fileName = pathCopy[pathCopy.length - 1];
+                    let currentContent = parent[fileName];
+                    let currentLines = currentContent.split('\n').length;
+
+                    if (currentLines < maxLines) {
+                        const linesToAdd = maxLines - currentLines;
+                        for (let i = 0; i < linesToAdd; i++) {
+                            currentContent += "\n";
+                        }
+                        parent[fileName] = currentContent;
+                    }
+                });
+            }
+            padTextFiles();
+
+
+            // Initial Setup
+            displayInitialLoginState(); 
+        });
+    </script>
+</body>
+</html>
